@@ -84,6 +84,7 @@ export default function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'config' | 'preview'>('dashboard');
+  const [isStaticMode, setIsStaticMode] = useState(false);
   
   // Real-time Action states
   const [isScraping, setIsScraping] = useState(false);
@@ -129,12 +130,33 @@ export default function App() {
     setLoadingConfig(true);
     try {
       const res = await fetch('/api/config');
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      
+      if (!res.ok || text.trim().startsWith('<')) {
+        console.warn("API route not found, falling back to static config.json");
+        setIsStaticMode(true);
+        const staticRes = await fetch('./config.json');
+        data = await staticRes.json();
+      } else {
+        data = JSON.parse(text);
+      }
+      
       if (data.success && data.config) {
         setConfig(data.config);
       }
     } catch (err) {
-      console.error("加载配置文件失败", err);
+      console.warn("加载服务端配置失败，尝试加载静态 config.json", err);
+      setIsStaticMode(true);
+      try {
+        const staticRes = await fetch('./config.json');
+        const data = await staticRes.json();
+        if (data.success && data.config) {
+          setConfig(data.config);
+        }
+      } catch (staticErr) {
+        console.error("加载静态配置文件也失败", staticErr);
+      }
     } finally {
       setLoadingConfig(false);
     }
@@ -142,6 +164,10 @@ export default function App() {
 
   const handleSaveConfig = async (updatedConfig: AppConfig) => {
     setConfig(updatedConfig);
+    if (isStaticMode) {
+      console.info("静态发布模式下，前端暂存修改，要永久生效请修改源码中的 config.yaml 文件");
+      return;
+    }
     try {
       await fetch('/api/config', {
         method: 'POST',
@@ -162,21 +188,58 @@ export default function App() {
     
     try {
       const response = await fetch('/api/scrape', { method: 'POST' });
-      const data = await response.json();
-      if (data.success) {
-        setNodes(data.nodes || []);
-        setReports(data.reports || null);
+      const text = await response.text();
+      let data;
+
+      if (!response.ok || text.trim().startsWith('<')) {
+        console.warn("API scraper not found, loading static nodes.json");
+        setIsStaticMode(true);
+        const staticRes = await fetch('./nodes.json');
+        data = await staticRes.json();
+        
+        if (!silent) {
+          setScrapeLogs([
+            '[SYSTEM] 初始化进程...',
+            '[SYSTEM] 提示：当前页面部署于无后端静态发布环境 (GitHub Pages)',
+            `[SYSTEM] 最新节点已由 GitHub Actions 在 [ ${data.updated_at || '最近'} ] 完成测试调度与编译输出！`,
+            `[SYSTEM] 成功拉取并静态加载 ${data.nodes?.length || 0} 个最快优选节点。`,
+            '[SYSTEM] 免去手动调速，保障实时订阅全天候稳健运行！'
+          ]);
+        }
+      } else {
+        data = JSON.parse(text);
         if (!silent) {
           setScrapeLogs(data.logs || []);
         }
+      }
+
+      if (data.success) {
+        setNodes(data.nodes || []);
+        setReports(data.reports || null);
       } else {
         if (!silent) {
           setScrapeLogs(prev => [...prev, `❌ 运行失败: ${data.error}`]);
         }
       }
     } catch (err: any) {
-      if (!silent) {
-        setScrapeLogs(prev => [...prev, `❌ 连接异常: ${err.message}`]);
+      setIsStaticMode(true);
+      try {
+        const staticRes = await fetch('./nodes.json');
+        const data = await staticRes.json();
+        setNodes(data.nodes || []);
+        setReports(data.reports || null);
+        if (!silent) {
+          setScrapeLogs([
+            '[SYSTEM] 提示：当前页面部署于无后端静态发布环境 (GitHub Pages)',
+            `[SYSTEM] 最新节点已由 GitHub Actions 在 [ ${data.updated_at || '最近'} ] 完成测试调度与编译输出！`,
+            `[SYSTEM] 成功拉取并静态加载 ${data.nodes?.length || 0} 个最快优选节点。`,
+            '[SYSTEM] 免去手动调速，无需重复发起探测！'
+          ]);
+        }
+      } catch (staticErr) {
+        if (!silent) {
+          setScrapeLogs(prev => [...prev, `❌ 静态资源拉取失败: ${err.message}`]);
+        }
       }
     } finally {
       setIsScraping(false);
@@ -699,8 +762,24 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.15 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              className="space-y-6"
             >
+              {isStaticMode && (
+                <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-4 flex gap-3 text-xs leading-relaxed text-indigo-200">
+                  <AlertCircle className="h-5 w-5 text-indigo-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-white">⚙️ 静态托管运行提示 (GitHub Pages Mode)</span>
+                    <p className="mt-1">
+                      您当前的控制台部署在无服务器的 GitHub Pages 环境中。在这里添加、移除或修改采集源，仅作为<strong>当前页面的浏览器沙箱内模拟及预览</strong>，无法写入存储在您 GitHub 仓库的物理配置文件。
+                    </p>
+                    <p className="mt-1.5 text-slate-300">
+                      若要永久追加或剔除某个采集源，可以直接在您的 GitHub 仓库的 <code className="bg-slate-950 px-1 py-0.5 rounded text-indigo-300 font-mono">config.yaml</code> 配置文件中修改。GitHub Actions 会在提交后重新编译并更新此处。
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* GitHub sources config panel */}
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
                 <div className="border-b border-slate-800 pb-3">
@@ -967,7 +1046,8 @@ export default function App() {
                 )}
 
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
           )}
 
           {activeTab === 'preview' && (

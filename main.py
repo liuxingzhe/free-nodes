@@ -188,6 +188,31 @@ def main():
         f.write(singbox_json)
     logger.info(f"【SUCCESS】Sing-box 配置文件生成成功: {os.path.join(out_dir, 'singbox.json')}")
 
+    # - 导出4：添加静态 nodes.json 和 config.json 供 GitHub Pages 前端面板直接加载展示
+    import json
+    from datetime import datetime
+    static_nodes_data = {
+        "success": True,
+        "nodes": final_nodes,
+        "reports": {
+            "sub_txt": base64_sub,
+            "clash_yaml": clash_yaml,
+            "singbox_json": singbox_json
+        },
+        "updated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    }
+    with open(os.path.join(out_dir, "nodes.json"), "w", encoding="utf-8") as f:
+        json.dump(static_nodes_data, f, ensure_ascii=False, indent=2)
+    logger.info(f"【SUCCESS】静态 nodes.json 写入成功: {os.path.join(out_dir, 'nodes.json')}")
+
+    static_config_data = {
+        "success": True,
+        "config": config
+    }
+    with open(os.path.join(out_dir, "config.json"), "w", encoding="utf-8") as f:
+        json.dump(static_config_data, f, ensure_ascii=False, indent=2)
+    logger.info(f"【SUCCESS】静态 config.json 写入成功: {os.path.join(out_dir, 'config.json')}")
+
     logger.info("==============================================")
     logger.info(" 🎉 AutoProxyGenerator 所有任务执行完毕！ 🎉")
     logger.info("==============================================")

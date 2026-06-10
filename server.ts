@@ -840,7 +840,33 @@ async function startServer() {
         }
       });
 
-      const clashTemplateBase = `port: 7890\nsocks-port: 7891\nallow-lan: true\nmode: rule\nlog-level: info\nexternal-controller: 127.0.0.1:9090\n\nproxies:\n${clashProxiesYaml}\nproxy-groups:\n  - name: ${clashGroup}\n    type: select\n    proxies:\n      - ⚡ 自动最快\n      - DIRECT\n${clashProxyNames.map(n => `      - "${n}"`).join("\n")}\n\n  - name: ⚡ 自动最快\n    type: url-test\n    url: http://cp.cloudflare.com/generate_204\n    interval: 300\n    tolerance: 50\n    proxies:\n${clashProxyNames.map(n => `      - "${n}"`).join("\n")}\n\nrules:\n  - GEOIP,CN,DIRECT\n  - MATCH,${clashGroup}`;
+      let clashTemplateBase = "";
+      const clashTemplatePath = path.join(process.cwd(), "templates", "clash_template.yaml");
+      if (fs.existsSync(clashTemplatePath)) {
+        let tplContent = fs.readFileSync(clashTemplatePath, "utf8");
+
+        // 1. Replace the proxies block under proxies:
+        const proxiesRegex = /proxies:\s*\n\{%- for p in proxies %\}[\s\S]*?\{%- endfor %\}/;
+        if (proxiesRegex.test(tplContent)) {
+          tplContent = tplContent.replace(proxiesRegex, `proxies:\n${clashProxiesYaml}`);
+        } else {
+          const altProxiesRegex = /proxies:[\s\S]*?\{%- for p in proxies %\}[\s\S]*?\{%- endfor %\}/;
+          tplContent = tplContent.replace(altProxiesRegex, `proxies:\n${clashProxiesYaml}`);
+        }
+
+        // 2. Replace the proxy name loops with actual list of proxy name bullet items
+        const proxyNamesLoopRegex = /\{%- for name in proxy_names %\}[\s\S]*?- "\{\{\s*name\s*\}\}"[\s\S]*?\{%- endfor %\}/g;
+        const namesMappedStr = clashProxyNames.map(n => `      - "${n}"`).join("\n");
+        tplContent = tplContent.replace(proxyNamesLoopRegex, namesMappedStr);
+
+        // 3. Replace target group name with the parsed group name
+        tplContent = tplContent.replace(/\{\{\s*group_name\s*\}\}/g, clashGroup);
+
+        clashTemplateBase = tplContent;
+      } else {
+        // Fallback placeholder template
+        clashTemplateBase = `port: 7890\nsocks-port: 7891\nallow-lan: true\nmode: rule\nlog-level: info\nexternal-controller: 127.0.0.1:9090\n\nproxies:\n${clashProxiesYaml}\nproxy-groups:\n  - name: ${clashGroup}\n    type: select\n    proxies:\n      - ⚡ 自动最快\n      - DIRECT\n${clashProxyNames.map(n => `      - "${n}"`).join("\n")}\n\n  - name: ⚡ 自动最快\n    type: url-test\n    url: http://cp.cloudflare.com/generate_204\n    interval: 300\n    tolerance: 50\n    proxies:\n${clashProxyNames.map(n => `      - "${n}"`).join("\n")}\n\nrules:\n  - GEOIP,CN,DIRECT\n  - MATCH,${clashGroup}`;
+      }
 
       // Render Sing-box outbounds
       const singboxOutbounds = finalNodes.map((node, idx) => {

@@ -371,7 +371,16 @@ export default function App() {
     if (origin.includes('-dev-')) {
       return origin.replace('-dev-', '-pre-') + path;
     }
-    return origin + path;
+    // Compatible with subdirectory deployment, e.g., GitHub Pages: https://liuxingzhe.github.io/free-nodes/
+    let pathname = window.location.pathname;
+    if (pathname.endsWith('index.html')) {
+      pathname = pathname.substring(0, pathname.lastIndexOf('/') + 1);
+    }
+    if (!pathname.endsWith('/')) {
+      pathname += '/';
+    }
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    return origin + pathname + cleanPath;
   };
 
   return (

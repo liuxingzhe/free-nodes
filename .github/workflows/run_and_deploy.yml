@@ -91,6 +91,7 @@ jobs:
         run: |
           rm -f package-lock.json
           npm install
+          npm install -D @tailwindcss/oxide-linux-x64-gnu
           npx vite build
 
       - name: Run Proxy Generator

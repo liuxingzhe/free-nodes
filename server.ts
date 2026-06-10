@@ -795,10 +795,11 @@ async function startServer() {
         } else if (node.protocol === "trojan") {
           const params = node.params || {};
           clashProxiesYaml += `    password: "${node.uuid}"\n`;
-          const sniVal = params.sni || params.host || "";
+          const sniVal = params.sni || params.host || node.server;
           if (sniVal) {
             clashProxiesYaml += `    sni: "${sniVal}"\n`;
           }
+          clashProxiesYaml += `    tls: true\n`;
           clashProxiesYaml += `    skip-cert-verify: true\n`;
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "ss") {
@@ -837,6 +838,11 @@ async function startServer() {
               clashProxiesYaml += `    obfs-password: "${params["obfs-password"]}"\n`;
             }
           }
+        } else {
+          // Unsupported protocol (like tuic) fallback to shadowsocks mapping as in python convertor
+          clashProxiesYaml += `    cipher: "aes-256-gcm"\n`;
+          clashProxiesYaml += `    password: "${node.uuid || "password"}"\n`;
+          clashProxiesYaml += `    udp: true\n`;
         }
       });
 

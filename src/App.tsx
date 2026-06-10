@@ -458,54 +458,63 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 self-stretch md:self-auto md:w-auto">
-            <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2">
+            <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2 md:w-[220px]">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-semibold tracking-wider text-indigo-400 uppercase">Clash YAML</span>
                 <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">Port 7890</span>
               </div>
-              <div className="flex gap-1.5 items-center mt-1">
+              <div className="flex flex-col gap-1.5 mt-1">
                 <button
                   id="btn-copy-clash"
                   onClick={() => handleCopy(getSubUrl('/clash.yaml'), 'clash_link')}
-                  className="flex-1 py-1.5 px-3 rounded bg-slate-800 text-slate-200 hover:bg-indigo-600 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
+                  className="w-full py-1.5 px-3 rounded bg-slate-800 text-slate-200 hover:bg-indigo-600 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
                 >
                   {copiedLink === 'clash_link' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   {copiedLink === 'clash_link' ? '已复制' : '复制 Clash'}
                 </button>
+                <div className="text-[9px] font-mono text-slate-400 bg-slate-950/80 p-2 rounded border border-slate-900 break-all select-all hover:text-white transition cursor-help line-clamp-2" title={getSubUrl('/clash.yaml')}>
+                  {getSubUrl('/clash.yaml')}
+                </div>
               </div>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2">
+            <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2 md:w-[220px]">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-semibold tracking-wider text-indigo-400 uppercase">Sing-box JSON</span>
                 <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">Port 2080</span>
               </div>
-              <div className="flex gap-1.5 items-center mt-1">
+              <div className="flex flex-col gap-1.5 mt-1">
                 <button
                   id="btn-copy-singbox"
                   onClick={() => handleCopy(getSubUrl('/singbox.json'), 'singbox_link')}
-                  className="flex-1 py-1.5 px-3 rounded bg-slate-800 text-slate-200 hover:bg-indigo-600 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
+                  className="w-full py-1.5 px-3 rounded bg-slate-800 text-slate-200 hover:bg-indigo-600 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
                 >
                   {copiedLink === 'singbox_link' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   {copiedLink === 'singbox_link' ? '已复制' : '复制 Sing-box'}
                 </button>
+                <div className="text-[9px] font-mono text-slate-400 bg-slate-950/80 p-2 rounded border border-slate-900 break-all select-all hover:text-white transition cursor-help line-clamp-2" title={getSubUrl('/singbox.json')}>
+                  {getSubUrl('/singbox.json')}
+                </div>
               </div>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2">
+            <div className="bg-slate-900/40 border border-slate-800 p-3 rounded-xl flex flex-col justify-between gap-2 md:w-[220px]">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono font-semibold tracking-wider text-indigo-400 uppercase">Base64 Link</span>
                 <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">Mutil Protocol</span>
               </div>
-              <div className="flex gap-1.5 items-center mt-1">
+              <div className="flex flex-col gap-1.5 mt-1">
                 <button
                   id="btn-copy-base64"
                   onClick={() => handleCopy(getSubUrl('/sub.txt'), 'base64_link')}
-                  className="flex-1 py-1.5 px-3 rounded bg-slate-800 text-slate-200 hover:bg-indigo-600 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
+                  className="w-full py-1.5 px-3 rounded bg-slate-800 text-slate-200 hover:bg-indigo-600 text-[11px] font-medium transition flex items-center justify-center gap-1.5"
                 >
                   {copiedLink === 'base64_link' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   {copiedLink === 'base64_link' ? '已复制' : '复制 Base64'}
                 </button>
+                <div className="text-[9px] font-mono text-slate-400 bg-slate-950/80 p-2 rounded border border-slate-900 break-all select-all hover:text-white transition cursor-help line-clamp-2" title={getSubUrl('/sub.txt')}>
+                  {getSubUrl('/sub.txt')}
+                </div>
               </div>
             </div>
           </div>

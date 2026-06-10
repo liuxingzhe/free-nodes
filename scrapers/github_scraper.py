@@ -57,6 +57,21 @@ class GitHubScraper(BaseScraper):
                     line = line.strip()
                     if line:
                         nodes.append(line)
+        elif self.type in ["clash", "yaml"]:
+            import yaml
+            from utils.parser import clash_proxy_to_uri
+            try:
+                clash_data = yaml.safe_load(content)
+                if isinstance(clash_data, dict) and "proxies" in clash_data:
+                    yaml_count = 0
+                    for proxy in clash_data["proxies"]:
+                        node_uri = clash_proxy_to_uri(proxy)
+                        if node_uri:
+                            nodes.append(node_uri)
+                            yaml_count += 1
+                    self.logger.info(f"Clash YAML 解构成功，共萃取 {yaml_count} 个节点")
+            except Exception as e:
+                self.logger.error(f"Clash YAML 解构解码出错: {e}")
         else:
             # Raw 行分割模式
             raw_lines = content.splitlines()

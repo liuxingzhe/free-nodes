@@ -12,6 +12,7 @@ from typing import List, Dict, Optional
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from scrapers.base_scraper import BaseScraper
+from utils.parser import clash_proxy_to_uri
 
 class WebScraper(BaseScraper):
     """
@@ -108,61 +109,7 @@ class WebScraper(BaseScraper):
         """
         把 Clash 字典转换回标准的客户端协议连接 URI 格式
         """
-        try:
-            ptype = str(p.get("type", "")).lower()
-            server = p.get("server")
-            port = p.get("port")
-            name = p.get("name", "Node")
-            if not server or not port:
-                return None
-            
-            hash_part = f"#{name}"
-
-            if ptype in ["ss", "shadowsocks"]:
-                cipher = p.get("cipher") or p.get("cipher_type")
-                password = p.get("password")
-                if cipher and password:
-                    credential = base64.b64encode(f"{cipher}:{password}".encode()).decode()
-                    return f"ss://{credential}@{server}:{port}{hash_part}"
-            
-            elif ptype == "trojan":
-                password = p.get("password")
-                if password:
-                    return f"trojan://{password}@{server}:{port}{hash_part}"
-            
-            elif ptype == "vmess":
-                uuid = p.get("uuid")
-                if uuid:
-                    v_meta = {
-                        "v": "2",
-                        "ps": name,
-                        "add": server,
-                        "port": str(port),
-                        "id": uuid,
-                        "aid": "0",
-                        "net": p.get("network", "tcp"),
-                        "type": "none",
-                        "host": p.get("ws-opts", {}).get("headers", {}).get("Host") or p.get("servername", ""),
-                        "path": p.get("ws-opts", {}).get("path", "/"),
-                        "tls": "tls" if p.get("tls") else ""
-                    }
-                    b64_json = base64.b64encode(json.dumps(v_meta).encode()).decode()
-                    return f"vmess://{b64_json}"
-            
-            elif ptype == "vless":
-                uuid = p.get("uuid")
-                if uuid:
-                    tls = "security=tls" if p.get("tls") else ""
-                    return f"vless://{uuid}@{server}:{port}?{tls}{hash_part}"
-            
-            elif ptype in ["hysteria2", "hy2"]:
-                password = p.get("password") or p.get("auth") or p.get("auth_str")
-                if password:
-                    return f"hysteria2://{password}@{server}:{port}{hash_part}"
-
-        except Exception:
-            pass
-        return None
+        return clash_proxy_to_uri(p)
 
     def scrape(self) -> List[str]:
         """

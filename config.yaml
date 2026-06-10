@@ -13,15 +13,6 @@ scrapers:
     - name: "YoYaPai Clash"
       url: "https://yoyapai.com/tag/clash-meta%e8%8a%82%e7%82%b9"
       depth: 2
-    - name: "NoMoreLost Clash"
-      url: "https://raw.githubusercontent.com/peasoft/NoMoreLost/main/clash.yaml"
-      depth: 1
-    - name: "AutoNode Clash"
-      url: "https://raw.githubusercontent.com/w1770946466/auto_node/main/clash.yaml"
-      depth: 1
-    - name: "ToLinkShare Clash"
-      url: "https://raw.githubusercontent.com/tolinkshare/tolinkshare/main/clash.yaml"
-      depth: 1
 
 # 备份屏蔽掉的抓取源清单：
 # github_sources_backup:

@@ -297,7 +297,7 @@ async function startServer() {
       console.log(`[ProxyScraper] ${msg}`);
     };
 
-    const robustFetch = async (url: string, options: any): Promise<Response> => {
+    const robustFetch = async (url: string, options: any = {}, timeoutMs: number = 12000): Promise<Response> => {
       const urlsToTry = [url];
       if (url.includes("raw.githubusercontent.com")) {
         urlsToTry.push(url.replace("raw.githubusercontent.com", "raw.gitmirror.com"));
@@ -308,9 +308,21 @@ async function startServer() {
       let lastErr: any = null;
       for (let i = 0; i < urlsToTry.length; i++) {
         const targetUrl = urlsToTry[i];
+        
+        // Use standard AbortController for backward compatible timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, timeoutMs);
+
         try {
           log(`  ↳ 发起实时请求 (尝试 ${i + 1}/${urlsToTry.length}): ${targetUrl}`);
-          const res = await fetch(targetUrl, options);
+          const res = await fetch(targetUrl, {
+            ...options,
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
           if (res.ok) {
             const cloneRes = res.clone();
             const text = await cloneRes.text();
@@ -323,6 +335,7 @@ async function startServer() {
             log(`  ↳ 告知：该源/镜像网络请求返回状态码 ${res.status}`);
           }
         } catch (e: any) {
+          clearTimeout(timeoutId);
           log(`  ↳ 警报：网络链路发生故障 (${targetUrl}): ${e.message}`);
           lastErr = e;
         }
@@ -353,9 +366,8 @@ async function startServer() {
         log(`正在抓取 GitHub/Sub 源: "${src.name}"`);
         try {
           const response = await robustFetch(src.url, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-            signal: AbortSignal.timeout(12000)
-          });
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+          }, 12000);
           if (!response.ok) {
             log(`⚠️ 抓取失败 (HTTP ${response.status}): ${src.name}`);
             continue;
@@ -394,9 +406,8 @@ async function startServer() {
         log(`正在抓取 Telegram Web 预览: https://t.me/s/${chan.channel}`);
         try {
           const response = await robustFetch(`https://t.me/s/${chan.channel}`, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-            signal: AbortSignal.timeout(12000)
-          });
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+          }, 12000);
           if (!response.ok) {
             log(`⚠️ 抓取 TG 渠道预览失败 (HTTP ${response.status})`);
             continue;
@@ -417,225 +428,254 @@ async function startServer() {
       log(`🔎 检测到 ${webSources.length} 个注册的通用网页 / 博客订阅源...`);
       for (const ws of webSources) {
         log(`正在抓取通用网页源: "${ws.name}" (${ws.url})`);
+        
+        const subLinks: string[] = [];
+        const detailLinks: string[] = [];
+
+        // 若为 yoyapai 源，主动依靠时间流预载最近 5 天的极速真实 YAML 订阅直链（避免被 WordPress 的 Cloudflare 等反爬虫阻断）
+        if (ws.url.includes("yoyapai.com")) {
+          log("  ↳ YoYapai 源：主动动态预生成最近 5 天的极连时间轴 YAML 订阅直链进行高可用多链路保底下载...");
+          try {
+            const nowUtc = Date.now();
+            const timezoneOffsetMs = 8 * 60 * 60 * 1000; // 北京时间位于东八区 (UTC+8)
+            for (let i = 0; i < 5; i++) {
+              const beijingTime = new Date(nowUtc + timezoneOffsetMs - (i * 24 * 60 * 60 * 1000));
+              const year = String(beijingTime.getUTCFullYear());
+              const month = String(beijingTime.getUTCMonth() + 1).padStart(2, "0");
+              const day = String(beijingTime.getUTCDate()).padStart(2, "0");
+              
+              const directYamlUrl = `https://freenode.yoyapai.com/${year}/${month}/${day}-yoyapai.com-clashvpn-mianfeijiedian.yaml`;
+              subLinks.push(directYamlUrl);
+              log(`    - 动态加入保底 YAML 订阅链接: ${directYamlUrl}`);
+            }
+          } catch (err: any) {
+            log(`    - 动态生成保底链接时有非致命异常: ${err.message}`);
+          }
+        }
+
+        // A. 尝试获取并提取网页主页 HTML 内容 (如遇阻碍则靠上面的直链保底)
         try {
           const wsResponse = await robustFetch(ws.url, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-            signal: AbortSignal.timeout(15000)
-          });
-          if (!wsResponse.ok) {
-            log(`⚠️ 抓取网页失败 (HTTP ${wsResponse.status})`);
-            continue;
-          }
-          const html = await wsResponse.text();
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+          }, 15000);
           
-          // A. 抓取网页内可能存在的裸节点
-          const nodeRegex = /(?:vmess|vless|ss|ssr|trojan|hysteria2|hy2|tuic):\/\/[^\s<"']+/g;
-          const directNodes = html.match(nodeRegex) || [];
-          if (directNodes.length > 0) {
-            log(`  ↳ 网页主页直接抓取到 ${directNodes.length} 个原生格式节点`);
-            allRawLinks = allRawLinks.concat(directNodes);
-          }
-
-          // B. 提炼 HTML 所有的 href 超链接，挑选详情博文和直接订阅资源
-          const urlObj = new URL(ws.url);
-          const baseDomain = urlObj.hostname;
-          const hrefRegex = /href="([^"]+)"/g;
-          let match;
-          const discoveredLinks: string[] = [];
-          
-          while ((match = hrefRegex.exec(html)) !== null) {
-            let link = match[1].trim();
-            if (!link) continue;
-            if (link.startsWith("//")) {
-              link = "https:" + link;
-            } else if (link.startsWith("/")) {
-              link = `https://${baseDomain}${link}`;
-            } else if (!link.startsWith("http")) {
-              continue;
+          if (wsResponse.ok) {
+            const html = await wsResponse.text();
+            
+            // 抓取网页内可能存在的裸节点
+            const nodeRegex = /(?:vmess|vless|ss|ssr|trojan|hysteria2|hy2|tuic):\/\/[^\s<"']+/g;
+            const directNodes = html.match(nodeRegex) || [];
+            if (directNodes.length > 0) {
+              log(`  ↳ 网页主页直接抓取到 ${directNodes.length} 个原生格式节点`);
+              allRawLinks = allRawLinks.concat(directNodes);
             }
-            discoveredLinks.push(link);
-          }
 
-          const uniqueDiscoveries = Array.from(new Set(discoveredLinks));
-          const subLinks: string[] = [];
-          const detailLinks: string[] = [];
-
-          for (const link of uniqueDiscoveries) {
-            if (link.includes("wp-content") || link.includes("wp-includes") || link.includes("wp-json") || link.includes("tag/") || link.includes("category/")) {
-              continue;
+            // B. 提炼 HTML 所有的 href 超链接，挑选详情博文和直接订阅资源
+            const urlObj = new URL(ws.url);
+            const baseDomain = urlObj.hostname;
+            const hrefRegex = /href="([^"]+)"/g;
+            let match;
+            const discoveredLinks: string[] = [];
+            
+            while ((match = hrefRegex.exec(html)) !== null) {
+              let link = match[1].trim();
+              if (!link) continue;
+              if (link.startsWith("//")) {
+                link = "https:" + link;
+              } else if (link.startsWith("/")) {
+                link = `https://${baseDomain}${link}`;
+              } else if (!link.startsWith("http")) {
+                continue;
+              }
+              discoveredLinks.push(link);
             }
-            if (link.toLowerCase().includes(".yaml") || link.toLowerCase().includes(".yml") || link.toLowerCase().includes(".txt") || link.includes("sub/") || link.includes("subscribe") || link.includes("/sub?") || link.includes("clash")) {
-              subLinks.push(link);
-            } else if (/\/\d+$/.test(link) || /\/posts?\/\d+/.test(link) || /\/article\/\d+/.test(link) || link.includes(".html") || link.includes("/5")) {
-              detailLinks.push(link);
-            }
-          }
 
-          // C. 深入采样最新 3 个博文列表文章
-          const depth = ws.depth ?? 2;
-          if (depth >= 2 && detailLinks.length > 0) {
-            // 对详情页按文章数字编号降序，取最新的 3 篇
-            detailLinks.sort((a, b) => {
-              const numA = parseInt((a.match(/\d+/g) || []).join("")) || 0;
-              const numB = parseInt((b.match(/\d+/g) || []).join("")) || 0;
-              return numB - numA;
-            });
+            const uniqueDiscoveries = Array.from(new Set(discoveredLinks));
 
-            const targetArticles = detailLinks.slice(0, 3);
-            log(`  ↳ 发掘该网站的博文详情文章 ${detailLinks.length} 篇，抽样最新 ${targetArticles.length} 篇详情文章深度探索...`);
-
-            for (const articleUrl of targetArticles) {
-              try {
-                const artRes = await robustFetch(articleUrl, {
-                  headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-                  signal: AbortSignal.timeout(12000)
-                });
-                if (!artRes.ok) continue;
-                const artHtml = await artRes.text();
-
-                // 博文原生节点
-                const artNodes = artHtml.match(nodeRegex) || [];
-                if (artNodes.length > 0) {
-                  log(`    - 文章 ${articleUrl.substring(articleUrl.lastIndexOf('/'))} 中抓取到 ${artNodes.length} 个原生节点`);
-                  allRawLinks = allRawLinks.concat(artNodes);
+            for (const link of uniqueDiscoveries) {
+              if (link.includes("wp-content") || link.includes("wp-includes") || link.includes("wp-json") || link.includes("tag/") || link.includes("category/")) {
+                continue;
+              }
+              if (link.toLowerCase().includes(".yaml") || link.toLowerCase().includes(".yml") || link.toLowerCase().includes(".txt") || link.includes("sub/") || link.includes("subscribe") || link.includes("/sub?") || link.includes("clash")) {
+                if (!subLinks.includes(link)) {
+                  subLinks.push(link);
                 }
+              } else if (/\/\d+$/.test(link) || /\/posts?\/\d+/.test(link) || /\/article\/\d+/.test(link) || link.includes(".html") || link.includes("/5")) {
+                detailLinks.push(link);
+              }
+            }
 
-                // 博文隐藏的订阅链接
-                let artMatch;
-                const innerHrefRegex = /href="([^"]+)"/g; // Use independent regex instance inside loop
-                while ((artMatch = innerHrefRegex.exec(artHtml)) !== null) {
-                  let aLink = artMatch[1].trim();
-                  if (!aLink) continue;
-                  if (aLink.startsWith("//")) aLink = "https:" + aLink;
-                  else if (aLink.startsWith("/")) aLink = `https://${baseDomain}${aLink}`;
-                  else if (!aLink.startsWith("http")) continue;
+            // C. 深入采样最新 3 个博文列表文章
+            const depth = ws.depth ?? 2;
+            if (depth >= 2 && detailLinks.length > 0) {
+              detailLinks.sort((a, b) => {
+                const numA = parseInt((a.match(/\d+/g) || []).join("")) || 0;
+                const numB = parseInt((b.match(/\d+/g) || []).join("")) || 0;
+                return numB - numA;
+              });
 
-                  if (aLink.toLowerCase().includes(".yaml") || aLink.toLowerCase().includes(".yml") || aLink.toLowerCase().includes(".txt") || aLink.includes("sub/") || aLink.includes("subscribe") || aLink.includes("/sub?") || aLink.includes("clash")) {
-                    if (!subLinks.includes(aLink)) {
-                      subLinks.push(aLink);
+              const targetArticles = detailLinks.slice(0, 3);
+              log(`  ↳ 发掘该网站的博文详情文章 ${detailLinks.length} 篇，抽样最新 ${targetArticles.length} 篇详情文章深度探索...`);
+
+              for (const articleUrl of targetArticles) {
+                try {
+                  const artRes = await robustFetch(articleUrl, {
+                    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+                  }, 12000);
+                  if (!artRes.ok) continue;
+                  const artHtml = await artRes.text();
+
+                  // 博文原生节点
+                  const artNodes = artHtml.match(nodeRegex) || [];
+                  if (artNodes.length > 0) {
+                    log(`    - 文章 ${articleUrl.substring(articleUrl.lastIndexOf('/'))} 中抓取到 ${artNodes.length} 个原生节点`);
+                    allRawLinks = allRawLinks.concat(artNodes);
+                  }
+
+                  // 博文隐藏的订阅链接
+                  let artMatch;
+                  const innerHrefRegex = /href="([^"]+)"/g;
+                  while ((artMatch = innerHrefRegex.exec(artHtml)) !== null) {
+                    let aLink = artMatch[1].trim();
+                    if (!aLink) continue;
+                    if (aLink.startsWith("//")) aLink = "https:" + aLink;
+                    else if (aLink.startsWith("/")) aLink = `https://${baseDomain}${aLink}`;
+                    else if (!aLink.startsWith("http")) continue;
+
+                    if (aLink.toLowerCase().includes(".yaml") || aLink.toLowerCase().includes(".yml") || aLink.toLowerCase().includes(".txt") || aLink.includes("sub/") || aLink.includes("subscribe") || aLink.includes("/sub?") || aLink.includes("clash")) {
+                      if (!subLinks.includes(aLink)) {
+                        subLinks.push(aLink);
+                      }
                     }
                   }
+                } catch (err: any) {
+                  log(`    - 抓取文章 ${articleUrl} 时跳过: ${err.message}`);
+                }
+              }
+            }
+          } else {
+            log(`⚠️ 抓取网页 ${ws.name} 主页失败 [HTTP ${wsResponse.status}]，将直接使用预生成直链。`);
+          }
+        } catch (e: any) {
+          log(`⚠️ 抓取网页主页由于反扒或网络阻断受阻: ${e.message}，将直接采用交叉时间流预载保底订阅。`);
+        }
+
+        // D. 请求所有订阅文件进行解密解包 (支持 YAML / B64 / 裸文字)
+        const finalSubLinks = Array.from(new Set(subLinks)).slice(0, 15);
+        log(`  ↳ 发掘/保底合并得出 ${finalSubLinks.length} 个高频订阅源，正在多线程远程拉取解析...`);
+
+        for (const subUrl of finalSubLinks) {
+          try {
+            const subRes = await robustFetch(subUrl, {
+              headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+            }, 12000);
+            if (!subRes.ok) {
+              log(`    - 订阅文件联结返回状态码异常: ${subRes.status}`);
+              continue;
+            }
+            const subText = await subRes.text();
+
+            // 1. 直发裸节点
+            const nodeRegex = /(?:vmess|vless|ss|ssr|trojan|hysteria2|hy2|tuic):\/\/[^\s<"']+/g;
+            const rNodes = subText.match(nodeRegex) || [];
+            if (rNodes.length > 0) {
+              allRawLinks = allRawLinks.concat(rNodes);
+            }
+
+            // 2. Base64
+            try {
+              const cleanedText = subText.replace(/\s+/g, "");
+              let padded = cleanedText;
+              while (padded.length % 4 !== 0) padded += "=";
+              const decodedText = Buffer.from(padded, "base64").toString("utf-8");
+              const b64Nodes = decodedText.match(nodeRegex) || [];
+              if (b64Nodes.length > 0) {
+                allRawLinks = allRawLinks.concat(b64Nodes);
+              }
+            } catch {}
+
+            // 3. YAML Clash Parser
+            if ((subText.includes("proxies:") || subText.includes("proxies")) && (subUrl.includes(".yaml") || subUrl.includes(".yml"))) {
+              try {
+                const yamlData = yaml.load(subText) as any;
+                if (yamlData && Array.isArray(yamlData.proxies)) {
+                  let ycount = 0;
+                  for (const p of yamlData.proxies) {
+                    if (!p) continue;
+                    const ptype = String(p.type || "").toLowerCase();
+                    const pserver = p.server;
+                    const pport = p.port;
+                    const pname = encodeURIComponent(p.name || "node");
+                    if (!pserver || !pport) continue;
+
+                    let uri = "";
+                    if (ptype === "ss" || ptype === "shadowsocks") {
+                      if (p.cipher && p.password) {
+                        let finalCipher = p.cipher;
+                        let finalPassword = p.password;
+                        
+                        // Check if p.password itself is a base64 encoded "cipher:password" string
+                        try {
+                          const trimmedPass = String(p.password).trim();
+                          const decoded = Buffer.from(trimmedPass, "base64").toString("utf-8");
+                          if (decoded.includes(":") && !/^\s*$/.test(decoded)) {
+                            const colonIdx = decoded.indexOf(":");
+                            const possibleCipher = decoded.substring(0, colonIdx).toLowerCase().trim();
+                            const knownCiphers = [
+                              "aes-256-gcm", "aes-128-gcm", "chacha20-ietf-poly1305", 
+                              "chacha20-poly1305", "aes-192-gcm", "aes-256-cfb", 
+                              "aes-128-cfb", "rc4-md5"
+                            ];
+                            if (knownCiphers.includes(possibleCipher)) {
+                              finalCipher = possibleCipher;
+                              finalPassword = decoded.substring(colonIdx + 1);
+                            }
+                          }
+                        } catch {}
+                        
+                        const cred = Buffer.from(`${finalCipher}:${finalPassword}`).toString("base64");
+                        uri = `ss://${cred}@${pserver}:${pport}#${pname}`;
+                      }
+                    } else if (ptype === "trojan" && p.password) {
+                      uri = `trojan://${p.password}@${pserver}:${pport}#${pname}`;
+                    } else if (ptype === "vmess" && p.uuid) {
+                      const vObj = {
+                        v: "2",
+                        ps: p.name || "Node",
+                        add: pserver,
+                        port: String(pport),
+                        id: p.uuid,
+                        aid: "0",
+                        net: p.network || "tcp",
+                        type: "none",
+                        host: p["ws-opts"]?.headers?.Host || p.servername || "",
+                        path: p["ws-opts"]?.path || "/",
+                        tls: p.tls ? "tls" : ""
+                      };
+                      const b64 = Buffer.from(JSON.stringify(vObj)).toString("base64");
+                      uri = `vmess://${b64}`;
+                    } else if (ptype === "vless" && p.uuid) {
+                      const tls = p.tls ? "security=tls" : "";
+                      uri = `vless://${p.uuid}@${pserver}:${pport}?${tls}#${pname}`;
+                    } else if ((ptype === "hysteria2" || ptype === "hy2") && (p.password || p.auth || p.auth_str)) {
+                      const auth = p.password || p.auth || p.auth_str;
+                      uri = `hysteria2://${auth}@${pserver}:${pport}#${pname}`;
+                    }
+
+                    if (uri) {
+                      allRawLinks.push(uri);
+                      ycount++;
+                    }
+                  }
+                  log(`    - YAML Clash 转换解析成功，提取出 ${ycount} 个活动节点: ${subUrl}`);
                 }
               } catch (err: any) {
-                log(`    - 抓取文章 ${articleUrl} 时跳过: ${err.message}`);
+                log(`    - 转换 YAML proxies 发生非致命解析错误: ${err.message}`);
               }
             }
+          } catch (err: any) {
+            log(`    - 处理订阅文件 ${subUrl} 网络错误: ${err.message}`);
           }
-
-          // D. 请求所有订阅文件进行解密解包 (支持 YAML / B64 / 裸文字)
-          const finalSubLinks = Array.from(new Set(subLinks)).slice(0, 5);
-          log(`  ↳ 最终发掘合并得出 ${finalSubLinks.length} 个高频订阅源，正在多线程远程拉取解析...`);
-
-          for (const subUrl of finalSubLinks) {
-            try {
-              const subRes = await robustFetch(subUrl, {
-                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-                signal: AbortSignal.timeout(12000)
-              });
-              if (!subRes.ok) continue;
-              const subText = await subRes.text();
-
-              // 1. 直发裸节点
-              const rNodes = subText.match(nodeRegex) || [];
-              if (rNodes.length > 0) {
-                allRawLinks = allRawLinks.concat(rNodes);
-              }
-
-              // 2. Base64
-              try {
-                const cleanedText = subText.replace(/\s+/g, "");
-                let padded = cleanedText;
-                while (padded.length % 4 !== 0) padded += "=";
-                const decodedText = Buffer.from(padded, "base64").toString("utf-8");
-                const b64Nodes = decodedText.match(nodeRegex) || [];
-                if (b64Nodes.length > 0) {
-                  allRawLinks = allRawLinks.concat(b64Nodes);
-                }
-              } catch {}
-
-              // 3. YAML Clash Parser
-              if ((subText.includes("proxies:") || subText.includes("proxies")) && (subUrl.includes(".yaml") || subUrl.includes(".yml"))) {
-                try {
-                  const yamlData = yaml.load(subText) as any;
-                  if (yamlData && Array.isArray(yamlData.proxies)) {
-                    let ycount = 0;
-                    for (const p of yamlData.proxies) {
-                      const ptype = String(p.type || "").toLowerCase();
-                      const pserver = p.server;
-                      const pport = p.port;
-                      const pname = encodeURIComponent(p.name || "node");
-                      if (!pserver || !pport) continue;
-
-                      let uri = "";
-                      if (ptype === "ss" || ptype === "shadowsocks") {
-                        if (p.cipher && p.password) {
-                          let finalCipher = p.cipher;
-                          let finalPassword = p.password;
-                          
-                          // Check if p.password itself is a base64 encoded "cipher:password" string
-                          try {
-                            const trimmedPass = String(p.password).trim();
-                            const decoded = Buffer.from(trimmedPass, "base64").toString("utf-8");
-                            if (decoded.includes(":") && !/^\s*$/.test(decoded)) {
-                              const colonIdx = decoded.indexOf(":");
-                              const possibleCipher = decoded.substring(0, colonIdx).toLowerCase().trim();
-                              const knownCiphers = [
-                                "aes-256-gcm", "aes-128-gcm", "chacha20-ietf-poly1305", 
-                                "chacha20-poly1305", "aes-192-gcm", "aes-256-cfb", 
-                                "aes-128-cfb", "rc4-md5"
-                              ];
-                              if (knownCiphers.includes(possibleCipher)) {
-                                finalCipher = possibleCipher;
-                                finalPassword = decoded.substring(colonIdx + 1);
-                              }
-                            }
-                          } catch {}
-                          
-                          const cred = Buffer.from(`${finalCipher}:${finalPassword}`).toString("base64");
-                          uri = `ss://${cred}@${pserver}:${pport}#${pname}`;
-                        }
-                      } else if (ptype === "trojan" && p.password) {
-                        uri = `trojan://${p.password}@${pserver}:${pport}#${pname}`;
-                      } else if (ptype === "vmess" && p.uuid) {
-                        const vObj = {
-                          v: "2",
-                          ps: p.name || "Node",
-                          add: pserver,
-                          port: String(pport),
-                          id: p.uuid,
-                          aid: "0",
-                          net: p.network || "tcp",
-                          type: "none",
-                          host: p["ws-opts"]?.headers?.Host || p.servername || "",
-                          path: p["ws-opts"]?.path || "/",
-                          tls: p.tls ? "tls" : ""
-                        };
-                        const b64 = Buffer.from(JSON.stringify(vObj)).toString("base64");
-                        uri = `vmess://${b64}`;
-                      } else if (ptype === "vless" && p.uuid) {
-                        const tls = p.tls ? "security=tls" : "";
-                        uri = `vless://${p.uuid}@${pserver}:${pport}?${tls}#${pname}`;
-                      } else if ((ptype === "hysteria2" || ptype === "hy2") && (p.password || p.auth || p.auth_str)) {
-                        const auth = p.password || p.auth || p.auth_str;
-                        uri = `hysteria2://${auth}@${pserver}:${pport}#${pname}`;
-                      }
-
-                      if (uri) {
-                        allRawLinks.push(uri);
-                        ycount++;
-                      }
-                    }
-                    log(`    - YAML Clash 转换解析成功，提取出 ${ycount} 个活动节点`);
-                  }
-                } catch {}
-              }
-            } catch (err: any) {
-              log(`    - 处理订阅文件 ${subUrl} 网络错误: ${err.message}`);
-            }
-          }
-
-        } catch (e: any) {
-          log(`❌ 网页源拉取错误: ${e.message}`);
         }
       }
 

@@ -88,6 +88,8 @@ jobs:
         run: |
           mkdir -p dist
           python main.py
+          # 将预先编译好的前端静态管理面版文件（dist-fe）拷贝到分发目录，使其一体化部署
+          cp -r dist-fe/* dist/ || true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

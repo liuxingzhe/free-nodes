@@ -82,6 +82,16 @@ jobs:
           
           chmod +x utils/lite-speedtest || true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Build Front-end Portal
+        run: |
+          npm install
+          npx vite build
+
       - name: Run Proxy Generator
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

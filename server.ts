@@ -569,7 +569,29 @@ async function startServer() {
                       let uri = "";
                       if (ptype === "ss" || ptype === "shadowsocks") {
                         if (p.cipher && p.password) {
-                          const cred = Buffer.from(`${p.cipher}:${p.password}`).toString("base64");
+                          let finalCipher = p.cipher;
+                          let finalPassword = p.password;
+                          
+                          // Check if p.password itself is a base64 encoded "cipher:password" string
+                          try {
+                            const trimmedPass = String(p.password).trim();
+                            const decoded = Buffer.from(trimmedPass, "base64").toString("utf-8");
+                            if (decoded.includes(":") && !/^\s*$/.test(decoded)) {
+                              const colonIdx = decoded.indexOf(":");
+                              const possibleCipher = decoded.substring(0, colonIdx).toLowerCase().trim();
+                              const knownCiphers = [
+                                "aes-256-gcm", "aes-128-gcm", "chacha20-ietf-poly1305", 
+                                "chacha20-poly1305", "aes-192-gcm", "aes-256-cfb", 
+                                "aes-128-cfb", "rc4-md5"
+                              ];
+                              if (knownCiphers.includes(possibleCipher)) {
+                                finalCipher = possibleCipher;
+                                finalPassword = decoded.substring(colonIdx + 1);
+                              }
+                            }
+                          } catch {}
+                          
+                          const cred = Buffer.from(`${finalCipher}:${finalPassword}`).toString("base64");
                           uri = `ss://${cred}@${pserver}:${pport}#${pname}`;
                         }
                       } else if (ptype === "trojan" && p.password) {
@@ -709,7 +731,7 @@ async function startServer() {
 
         clashProxiesYaml += `  - name: "${indexName}"\n`;
         clashProxiesYaml += `    type: ${node.protocol === "hy2" || node.protocol === "hysteria2" ? "hysteria2" : (node.protocol === "ss" ? "ss" : node.protocol)}\n`;
-        clashProxiesYaml += `    server: ${node.server}\n`;
+        clashProxiesYaml += `    server: "${node.server}"\n`;
         clashProxiesYaml += `    port: ${node.port}\n`;
 
         if (node.protocol === "vmess") {
@@ -720,20 +742,21 @@ async function startServer() {
           const tls = (params.tls === "tls" || params.tls === true || params.tls === "1" || params.tls === 1);
           const network = params.net || "tcp";
           
-          clashProxiesYaml += `    uuid: ${uuid}\n`;
+          clashProxiesYaml += `    uuid: "${uuid}"\n`;
           clashProxiesYaml += `    alterId: ${alterId}\n`;
-          clashProxiesYaml += `    cipher: ${cipher}\n`;
+          clashProxiesYaml += `    cipher: "${cipher}"\n`;
           clashProxiesYaml += `    tls: ${tls}\n`;
           if (tls && params.sni) {
-            clashProxiesYaml += `    servername: ${params.sni}\n`;
+            clashProxiesYaml += `    servername: "${params.sni}"\n`;
           }
           if (network === "ws") {
             clashProxiesYaml += `    network: ws\n`;
             clashProxiesYaml += `    ws-opts:\n`;
-            clashProxiesYaml += `      path: ${params.path || "/"}\n`;
-            if (params.host) {
+            clashProxiesYaml += `      path: "${params.path || "/"}"\n`;
+            const hostVal = params.host || params.sni || "";
+            if (hostVal) {
               clashProxiesYaml += `      headers:\n`;
-              clashProxiesYaml += `        Host: ${params.host}\n`;
+              clashProxiesYaml += `        Host: "${hostVal}"\n`;
             }
           }
         } else if (node.protocol === "vless") {
@@ -742,29 +765,30 @@ async function startServer() {
           const tls = (params.security === "tls" || params.security === "xtls" || params.tls === "1" || params.tls === 1 || params.tls === true);
           const network = params.type || "tcp";
           
-          clashProxiesYaml += `    uuid: ${uuid}\n`;
-          clashProxiesYaml += `    cipher: auto\n`;
+          clashProxiesYaml += `    uuid: "${uuid}"\n`;
+          clashProxiesYaml += `    cipher: "auto"\n`;
           clashProxiesYaml += `    tls: ${tls}\n`;
           if (params.flow) {
-            clashProxiesYaml += `    flow: ${params.flow}\n`;
+            clashProxiesYaml += `    flow: "${params.flow}"\n`;
           }
           if (tls && params.sni) {
-            clashProxiesYaml += `    servername: ${params.sni}\n`;
+            clashProxiesYaml += `    servername: "${params.sni}"\n`;
           }
           if (network === "ws") {
             clashProxiesYaml += `    network: ws\n`;
             clashProxiesYaml += `    ws-opts:\n`;
-            clashProxiesYaml += `      path: ${params.path || "/"}\n`;
-            if (params.host) {
+            clashProxiesYaml += `      path: "${params.path || "/"}"\n`;
+            const hostVal = params.host || params.sni || "";
+            if (hostVal) {
               clashProxiesYaml += `      headers:\n`;
-              clashProxiesYaml += `        Host: ${params.host}\n`;
+              clashProxiesYaml += `        Host: "${hostVal}"\n`;
             }
           }
         } else if (node.protocol === "trojan") {
           const params = node.params || {};
-          clashProxiesYaml += `    password: ${node.uuid}\n`;
+          clashProxiesYaml += `    password: "${node.uuid}"\n`;
           if (params.sni) {
-            clashProxiesYaml += `    sni: ${params.sni}\n`;
+            clashProxiesYaml += `    sni: "${params.sni}"\n`;
           }
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "ss") {
@@ -784,18 +808,18 @@ async function startServer() {
             method = parts[0];
             password = parts[1];
           }
-          clashProxiesYaml += `    cipher: ${method}\n`;
-          clashProxiesYaml += `    password: ${password}\n`;
+          clashProxiesYaml += `    cipher: "${method}"\n`;
+          clashProxiesYaml += `    password: "${password}"\n`;
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "hysteria2" || node.protocol === "hy2") {
           const params = node.params || {};
-          clashProxiesYaml += `    password: ${node.uuid}\n`;
+          clashProxiesYaml += `    password: "${node.uuid}"\n`;
           const sni = params.sni || node.server;
-          clashProxiesYaml += `    sni: ${sni}\n`;
+          clashProxiesYaml += `    sni: "${sni}"\n`;
           if (params.obfs) {
-            clashProxiesYaml += `    obfs: ${params.obfs}\n`;
+            clashProxiesYaml += `    obfs: "${params.obfs}"\n`;
             if (params["obfs-password"]) {
-              clashProxiesYaml += `    obfs-password: ${params["obfs-password"]}\n`;
+              clashProxiesYaml += `    obfs-password: "${params["obfs-password"]}"\n`;
             }
           }
         }

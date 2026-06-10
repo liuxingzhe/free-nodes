@@ -681,44 +681,15 @@ async function startServer() {
 
       log(`🛡️ 剔除异常不规则链接 ${totalParsed} 条，去重结算后保留 ${uniqueMap.size} 个唯一活动节点`);
 
-      // Filter based on thresholds
-      const testerConfig = configData?.tester || {};
-      const maxPingThreshold = testerConfig.max_ping_ms || 3000;
-      const minSpeedThreshold = testerConfig.min_download_mbps || 1.0;
+      // Filter based on thresholds - BYPASS filtering as requested by user ("不需要由系统后端测速过滤，保留所有解析到的节点")
+      const filteredNodes = Array.from(uniqueMap.values());
 
-      const filteredNodes = Array.from(uniqueMap.values()).filter(n => {
-        return n.ping < maxPingThreshold && n.speed >= minSpeedThreshold;
-      });
-
-      // Sort by best score: highest speed, lowest ping
-      filteredNodes.sort((a, b) => b.speed - a.speed || a.ping - b.ping);
-
-      log(`⚡ 筛选通过阈值 (延迟 < ${maxPingThreshold}ms 且 速度 >= ${minSpeedThreshold}MB/s) 节点数: ${filteredNodes.length}`);
-
-      // 【高可用保底保障机制】
-      const filteredRaws = new Set(filteredNodes.map(n => n.raw));
-      const fallbackNodes: NodeItem[] = [];
-      let backupCounter = 0;
-      for (const node of uniqueMap.values()) {
-        if (!filteredRaws.has(node.raw)) {
-          fallbackNodes.push({
-            ...node,
-            ping: Math.round(350.0 + (backupCounter * 4.3) % 180.0),
-            speed: parseFloat((1.5 + (backupCounter * 0.12) % 2.0).toFixed(2))
-          });
-          backupCounter++;
-        }
-      }
-
-      const minGuarantee = Math.min(uniqueMap.size, 60); // 保证至少 60 个节点（若总量不足则全部输出）
-      while (filteredNodes.length < minGuarantee && fallbackNodes.length > 0) {
-        filteredNodes.push(fallbackNodes.shift()!);
-      }
+      log(`⚡ 已绕过测速阈值过滤，保留全部有值节点数: ${filteredNodes.length}`);
 
       // Slice limits
-      const limit = configData?.convertor?.max_output_nodes || 80;
+      const limit = configData?.convertor?.max_output_nodes || 120; // Allow more nodes to be exported since user wants them all
       const finalNodes = filteredNodes.slice(0, limit);
-      log(`🎯 最终截取并保存总共 ${finalNodes.length} 个高精度输出节点进行渲染分发`);
+      log(`🎯 最终截取并保存总共 ${finalNodes.length} 个输出节点进行渲染分发`);
 
       // Render Clash Config
       const clashGroup = configData?.convertor?.clash_group_name || "AutoProxy";
@@ -726,7 +697,9 @@ async function startServer() {
       let clashProxyNames: string[] = [];
 
       finalNodes.forEach((node, idx) => {
-        const indexName = `🚀 ${node.name.replace(/[:[\]]/g, "-")} | ${node.protocol.toUpperCase()}_${idx + 1}`;
+        // Robustly clean name to prevent raw double quotes, single quotes, backslashes, colons, or brackets from corrupting YAML formatting
+        const cleanName = node.name.replace(/["'\\:[\]]/g, "").trim() || "Node";
+        const indexName = `🚀 ${cleanName} | ${node.protocol.toUpperCase()}_${idx + 1}`;
         clashProxyNames.push(indexName);
 
         clashProxiesYaml += `  - name: "${indexName}"\n`;
@@ -745,13 +718,13 @@ async function startServer() {
           clashProxiesYaml += `    uuid: "${uuid}"\n`;
           clashProxiesYaml += `    alterId: ${alterId}\n`;
           clashProxiesYaml += `    cipher: "${cipher}"\n`;
-          clashProxiesYaml += `    tls: ${tls}\n`;
           if (tls) {
+            clashProxiesYaml += `    tls: true\n`;
             clashProxiesYaml += `    skip-cert-verify: true\n`;
-          }
-          const sniVal = params.sni || params.host || "";
-          if (tls && sniVal) {
-            clashProxiesYaml += `    servername: "${sniVal}"\n`;
+            const sniVal = params.sni || params.host || "";
+            if (sniVal) {
+              clashProxiesYaml += `    servername: "${sniVal}"\n`;
+            }
           }
           if (network === "ws") {
             clashProxiesYaml += `    network: ws\n`;
@@ -771,16 +744,16 @@ async function startServer() {
           
           clashProxiesYaml += `    uuid: "${uuid}"\n`;
           clashProxiesYaml += `    cipher: "auto"\n`;
-          clashProxiesYaml += `    tls: ${tls}\n`;
           if (tls) {
+            clashProxiesYaml += `    tls: true\n`;
             clashProxiesYaml += `    skip-cert-verify: true\n`;
+            const sniVal = params.sni || params.host || "";
+            if (sniVal) {
+              clashProxiesYaml += `    servername: "${sniVal}"\n`;
+            }
           }
           if (params.flow) {
             clashProxiesYaml += `    flow: "${params.flow}"\n`;
-          }
-          const sniVal = params.sni || params.host || "";
-          if (tls && sniVal) {
-            clashProxiesYaml += `    servername: "${sniVal}"\n`;
           }
           if (network === "ws") {
             clashProxiesYaml += `    network: ws\n`;
@@ -799,7 +772,6 @@ async function startServer() {
           if (sniVal) {
             clashProxiesYaml += `    sni: "${sniVal}"\n`;
           }
-          clashProxiesYaml += `    tls: true\n`;
           clashProxiesYaml += `    skip-cert-verify: true\n`;
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "ss") {

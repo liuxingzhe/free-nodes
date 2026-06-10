@@ -14,6 +14,7 @@ interface NodeItem {
   ping: number;
   speed: number;
   country: string;
+  params?: any;
 }
 
 async function startServer() {
@@ -67,7 +68,8 @@ async function startServer() {
             port,
             uuid: data.id || "",
             name: name,
-            raw: urlStr
+            raw: urlStr,
+            params: data
           };
         } catch (e) {
           // VMess fallback to normal URL config if unparseable
@@ -82,6 +84,100 @@ async function startServer() {
 
       let rest = urlStr.substring(protoIndex + 3);
       
+      // 特殊解密处理 ss:// 全包 base64 或 @ 缺席
+      if (protocol === "ss" && !rest.includes("@")) {
+        let payload = rest;
+        let fragment = "";
+        if (payload.includes("#")) {
+          const idx = payload.indexOf("#");
+          fragment = payload.substring(idx + 1);
+          payload = payload.substring(0, idx);
+        }
+        
+        let decoded = "";
+        try {
+          const cleanB64 = payload.replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, "");
+          decoded = Buffer.from(cleanB64, "base64").toString("utf-8");
+        } catch {}
+
+        if (decoded.includes("@")) {
+          try {
+            const idx = decoded.lastIndexOf("@");
+            const cred = decoded.substring(0, idx);
+            const hostPort = decoded.substring(idx + 1);
+            if (hostPort.includes(":")) {
+              const hParts = hostPort.split(":");
+              const server = hParts[0];
+              const int_port = parseInt(hParts[1]) || 0;
+              const nameStr = fragment ? decodeURIComponent(fragment) : `SS_${server}_${int_port}`;
+              return {
+                protocol: "ss",
+                server,
+                port: int_port,
+                uuid: cred,
+                name: nameStr,
+                raw: urlStr,
+                params: {}
+              };
+            }
+          } catch {}
+        }
+      }
+
+      // 特殊解密处理 ssr:// 全包 base64
+      if (protocol === "ssr") {
+        let payload = rest;
+        if (payload.includes("#")) {
+          payload = payload.split("#")[0];
+        }
+        let decoded = "";
+        try {
+          const cleanB64 = payload.replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, "");
+          decoded = Buffer.from(cleanB64, "base64").toString("utf-8");
+        } catch {}
+
+        if (decoded) {
+          const parts = decoded.split(":");
+          if (parts.length >= 6) {
+            try {
+              const server = parts[0];
+              const int_port = parseInt(parts[1]) || 0;
+              const ssr_proto = parts[2];
+              const method = parts[3];
+              const obfs = parts[4];
+              const pass_b64 = parts[5];
+              let nameStr = `SSR_${server}_${int_port}`;
+              
+              if (pass_b64.includes("/")) {
+                const parts2 = pass_b64.split("/");
+                let query_part = parts2[1] || "";
+                if (query_part.startsWith("?")) {
+                  query_part = query_part.substring(1);
+                }
+                const urlSearchParams = new URLSearchParams(query_part);
+                const remarks = urlSearchParams.get("remarks");
+                if (remarks) {
+                  try {
+                    const cleanRemarksB64 = remarks.replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, "");
+                    nameStr = Buffer.from(cleanRemarksB64, "base64").toString("utf-8");
+                  } catch {}
+                }
+              }
+
+              return {
+                protocol: "ssr",
+                server,
+                port: int_port,
+                uuid: pass_b64,
+                name: nameStr,
+                raw: urlStr,
+                params: { ssr_protocol: ssr_proto, method, obfs }
+              };
+            } catch {}
+          }
+        }
+      }
+
       // 1. 备注 fragment
       let fragment = "";
       if (rest.includes("#")) {
@@ -98,8 +194,15 @@ async function startServer() {
         queryStr = rest.substring(idx + 1);
         rest = rest.substring(0, idx);
       }
+      const paramsObj: Record<string, string> = {};
+      try {
+        const urlSearchParams = new URLSearchParams(queryStr);
+        urlSearchParams.forEach((val, key) => {
+          paramsObj[key] = val;
+        });
+      } catch {}
 
-      // 3. 登录信息 user_info (如 ss/vless/trojan 的 uuid、加密、密码)
+      // 3. 登录信息 user_info
       let uuid = "";
       if (rest.includes("@")) {
         const idx = rest.lastIndexOf("@");
@@ -137,7 +240,8 @@ async function startServer() {
         port,
         uuid: decodeURIComponent(uuid),
         name: name || `${protocol.toUpperCase()}_${server}_${port}`,
-        raw: urlStr
+        raw: urlStr,
+        params: paramsObj
       };
     } catch {
       return null;
@@ -546,7 +650,8 @@ async function startServer() {
               raw: item.raw as string,
               ping: pingVal,
               speed: speedVal,
-              country
+              country,
+              params: item.params
             });
           }
         }
@@ -603,29 +708,96 @@ async function startServer() {
         clashProxyNames.push(indexName);
 
         clashProxiesYaml += `  - name: "${indexName}"\n`;
-        clashProxiesYaml += `    type: ${node.protocol === "hy2" ? "hysteria2" : node.protocol}\n`;
+        clashProxiesYaml += `    type: ${node.protocol === "hy2" || node.protocol === "hysteria2" ? "hysteria2" : (node.protocol === "ss" ? "ss" : node.protocol)}\n`;
         clashProxiesYaml += `    server: ${node.server}\n`;
         clashProxiesYaml += `    port: ${node.port}\n`;
 
-        if (node.protocol === "vmess" || node.protocol === "vless") {
-          clashProxiesYaml += `    uuid: ${node.uuid}\n`;
-          clashProxiesYaml += `    alterId: 0\n`;
+        if (node.protocol === "vmess") {
+          const params = node.params || {};
+          const uuid = node.uuid || params.id || "";
+          const alterId = parseInt(params.aid) || 0;
+          const cipher = params.scy || "auto";
+          const tls = (params.tls === "tls" || params.tls === true || params.tls === "1" || params.tls === 1);
+          const network = params.net || "tcp";
+          
+          clashProxiesYaml += `    uuid: ${uuid}\n`;
+          clashProxiesYaml += `    alterId: ${alterId}\n`;
+          clashProxiesYaml += `    cipher: ${cipher}\n`;
+          clashProxiesYaml += `    tls: ${tls}\n`;
+          if (tls && params.sni) {
+            clashProxiesYaml += `    servername: ${params.sni}\n`;
+          }
+          if (network === "ws") {
+            clashProxiesYaml += `    network: ws\n`;
+            clashProxiesYaml += `    ws-opts:\n`;
+            clashProxiesYaml += `      path: ${params.path || "/"}\n`;
+            if (params.host) {
+              clashProxiesYaml += `      headers:\n`;
+              clashProxiesYaml += `        Host: ${params.host}\n`;
+            }
+          }
+        } else if (node.protocol === "vless") {
+          const params = node.params || {};
+          const uuid = node.uuid || "";
+          const tls = (params.security === "tls" || params.security === "xtls" || params.tls === "1" || params.tls === 1 || params.tls === true);
+          const network = params.type || "tcp";
+          
+          clashProxiesYaml += `    uuid: ${uuid}\n`;
           clashProxiesYaml += `    cipher: auto\n`;
-          clashProxiesYaml += `    tls: true\n`;
-          clashProxiesYaml += `    network: ws\n`;
-          clashProxiesYaml += `    ws-opts:\n`;
-          clashProxiesYaml += `      path: /\n`;
-          clashProxiesYaml += `      headers:\n`;
-          clashProxiesYaml += `        Host: ${node.server}\n`;
+          clashProxiesYaml += `    tls: ${tls}\n`;
+          if (params.flow) {
+            clashProxiesYaml += `    flow: ${params.flow}\n`;
+          }
+          if (tls && params.sni) {
+            clashProxiesYaml += `    servername: ${params.sni}\n`;
+          }
+          if (network === "ws") {
+            clashProxiesYaml += `    network: ws\n`;
+            clashProxiesYaml += `    ws-opts:\n`;
+            clashProxiesYaml += `      path: ${params.path || "/"}\n`;
+            if (params.host) {
+              clashProxiesYaml += `      headers:\n`;
+              clashProxiesYaml += `        Host: ${params.host}\n`;
+            }
+          }
         } else if (node.protocol === "trojan") {
+          const params = node.params || {};
           clashProxiesYaml += `    password: ${node.uuid}\n`;
+          if (params.sni) {
+            clashProxiesYaml += `    sni: ${params.sni}\n`;
+          }
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "ss") {
-          clashProxiesYaml += `    cipher: chacha20-ietf-poly1305\n`;
-          clashProxiesYaml += `    password: ${node.uuid}\n`;
+          let method = "aes-256-gcm";
+          let password = node.uuid;
+          let decodedCred = "";
+          try {
+            decodedCred = Buffer.from(node.uuid, "base64").toString("utf-8");
+          } catch {}
+          
+          if (decodedCred.includes(":")) {
+            const parts = decodedCred.split(":");
+            method = parts[0];
+            password = parts[1];
+          } else if (node.uuid.includes(":")) {
+            const parts = node.uuid.split(":");
+            method = parts[0];
+            password = parts[1];
+          }
+          clashProxiesYaml += `    cipher: ${method}\n`;
+          clashProxiesYaml += `    password: ${password}\n`;
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "hysteria2" || node.protocol === "hy2") {
+          const params = node.params || {};
           clashProxiesYaml += `    password: ${node.uuid}\n`;
+          const sni = params.sni || node.server;
+          clashProxiesYaml += `    sni: ${sni}\n`;
+          if (params.obfs) {
+            clashProxiesYaml += `    obfs: ${params.obfs}\n`;
+            if (params["obfs-password"]) {
+              clashProxiesYaml += `    obfs-password: ${params["obfs-password"]}\n`;
+            }
+          }
         }
       });
 
@@ -634,14 +806,86 @@ async function startServer() {
       // Render Sing-box outbounds
       const singboxOutbounds = finalNodes.map((node, idx) => {
         const indexName = `🚀 ${node.name.replace(/[:[\]]/g, "-")} | ${node.protocol.toUpperCase()}_${idx + 1}`;
-        return {
+        const params = node.params || {};
+        const uuid = node.uuid || "";
+        const protocol = node.protocol;
+
+        const outbound: any = {
           tag: indexName,
-          type: node.protocol === "hy2" ? "hysteria" : node.protocol,
+          type: protocol === "hy2" || protocol === "hysteria2" ? "hysteria2" : (protocol === "ss" ? "shadowsocks" : protocol),
           server: node.server,
-          server_port: node.port,
-          uuid: node.protocol === "vmess" || node.protocol === "vless" ? node.uuid : undefined,
-          password: node.protocol === "trojan" || node.protocol === "ss" ? node.uuid : undefined
+          server_port: node.port
         };
+
+        if (protocol === "vmess") {
+          outbound.uuid = uuid || params.id || "";
+          outbound.security = params.scy || "auto";
+          outbound.alter_id = parseInt(params.aid) || 0;
+          const transport_type = params.net || "tcp";
+          if (transport_type === "ws" || transport_type === "grpc") {
+            outbound.transport = {
+              type: transport_type,
+              path: params.path || "/",
+              headers: { Host: params.host || "" }
+            };
+          }
+          if (params.tls === "tls" || params.tls === "1" || params.tls === 1 || params.tls === true) {
+            outbound.tls = {
+              enabled: true,
+              server_name: params.sni || node.server
+            };
+          }
+        } else if (protocol === "vless") {
+          outbound.uuid = uuid;
+          outbound.flow = params.flow || "";
+          if (params.security === "tls" || params.security === "xtls" || params.tls === "1" || params.tls === 1 || params.tls === true) {
+            outbound.tls = {
+              enabled: true,
+              server_name: params.sni || node.server
+            };
+          }
+          const transport_type = params.type || "tcp";
+          if (transport_type === "ws" || transport_type === "grpc") {
+            outbound.transport = {
+              type: transport_type,
+              path: params.path || "/",
+              headers: { Host: params.host || "" }
+            };
+          }
+        } else if (protocol === "trojan") {
+          outbound.password = uuid;
+          outbound.tls = {
+            enabled: true,
+            server_name: params.sni || node.server
+          };
+        } else if (protocol === "ss") {
+          let method = "aes-256-gcm";
+          let password = uuid;
+          let decodedCred = "";
+          try {
+            decodedCred = Buffer.from(uuid, "base64").toString("utf-8");
+          } catch {}
+          
+          if (decodedCred.includes(":")) {
+            const parts = decodedCred.split(":");
+            method = parts[0];
+            password = parts[1];
+          } else if (uuid.includes(":")) {
+            const parts = uuid.split(":");
+            method = parts[0];
+            password = parts[1];
+          }
+          outbound.method = method;
+          outbound.password = password;
+        } else if (protocol === "hysteria2" || protocol === "hy2") {
+          outbound.password = uuid;
+          outbound.tls = {
+            enabled: true,
+            server_name: params.sni || node.server
+          };
+        }
+
+        return outbound;
       });
 
       const singboxTemplate = {

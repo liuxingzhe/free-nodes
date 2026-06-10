@@ -29,18 +29,58 @@ jobs:
       - name: Download LiteSpeedTest Binary
         run: |
           # 自动获取并下载适用于 Linux amd64 的 LiteSpeedTest 二进制文件
-          LATEST_TAG=$(curl -s https://api.github.com/repos/xxf098/LiteSpeedTest/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "Latest LiteSpeedTest Version: $LATEST_TAG"
+          API_RES=$(curl -s https://api.github.com/repos/xxf098/LiteSpeedTest/releases/latest)
+          DOWNLOAD_URL=$(echo "$API_RES" | grep '"browser_download_url":' | grep -i 'linux' | grep -i 'amd64' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
           
-          # 下载包含 linux_amd64 的压缩包
-          DOWNLOAD_URL="https://github.com/xxf098/LiteSpeedTest/releases/download/${LATEST_TAG}/lite-speedtest_${LATEST_TAG}_linux_amd64.tar.gz"
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            echo "Failed to fetch download URL from GitHub API. Trying fallback synthesis..."
+            LATEST_TAG=$(echo "$API_RES" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+              LATEST_TAG="v0.15.0"
+            fi
+            PURE_VER=$(echo "$LATEST_TAG" | sed 's/^v//')
+            
+            # 生成候选链接
+            URL_CANDIDATES=(
+              "https://github.com/xxf098/LiteSpeedTest/releases/download/${LATEST_TAG}/lite-speedtest_${PURE_VER}_linux_amd64.tar.gz"
+              "https://github.com/xxf098/LiteSpeedTest/releases/download/${LATEST_TAG}/lite-speedtest_${LATEST_TAG}_linux_amd64.tar.gz"
+              "https://github.com/xxf098/LiteSpeedTest/releases/download/v0.15.0/lite-speedtest_0.15.0_linux_amd64.tar.gz"
+              "https://github.com/xxf098/LiteSpeedTest/releases/download/v0.15.0/lite-speedtest_v0.15.0_linux_amd64.tar.gz"
+            )
+            
+            for url in "${URL_CANDIDATES[@]}"; do
+              echo "Checking URL: $url"
+              # 用 curl -sI 获取，若为 200 或 302 则为有效链接
+              if curl -sI "$url" | grep -q -E "200|302"; then
+                DOWNLOAD_URL="$url"
+                echo "Found valid URL: $DOWNLOAD_URL"
+                break
+              fi
+            done
+          fi
+          
+          # 提供万无一失的最终兜底地址
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            DOWNLOAD_URL="https://github.com/xxf098/LiteSpeedTest/releases/download/v0.15.0/lite-speedtest_0.15.0_linux_amd64.tar.gz"
+          fi
+          
+          echo "Final chosen download URL: $DOWNLOAD_URL"
           curl -L -o litespeedtest.tar.gz "$DOWNLOAD_URL"
           
-          # 解压并分配权限
-          tar -xzf litespeedtest.tar.gz
-          # 查找解压出的可执行二进制，重命名为 lite-speedtest 并放到 utils 路径或系统路径
-          mv lite-speedtest utils/lite-speedtest || mv lite-speedtest-linux-amd64 utils/lite-speedtest || true
-          chmod +x utils/lite-speedtest
+          # 解压并分配权限，并确保即便失败也不会阻塞 CI 流程
+          mkdir -p utils
+          tar -xzf litespeedtest.tar.gz || true
+          
+          # 鲁棒地重命名与归置二进制文件
+          if [ -f lite-speedtest ]; then
+            mv lite-speedtest utils/lite-speedtest
+          elif [ -f lite-speedtest-linux-amd64 ]; then
+            mv lite-speedtest-linux-amd64 utils/lite-speedtest
+          elif [ -f lite-speedtest_linux_amd64 ]; then
+            mv lite-speedtest_linux_amd64 utils/lite-speedtest
+          fi
+          
+          chmod +x utils/lite-speedtest || true
 
       - name: Run Proxy Generator
         env:

@@ -74,20 +74,34 @@ def _parse_node_raw(url: str) -> Optional[Dict]:
 
     try:
         if url.startswith("vmess://"):
-            # VMess 采用 base64 编码的 JSON 字符串配置
+            # VMess 采用 base64 编码 of JSON 字符串配置
             raw_b64 = url[8:]
+            # 兼容有些客户端在 vmess:// base64 串后面附带 #备注 的非标格式
+            vmess_name_extracted = ""
+            if "#" in raw_b64:
+                raw_b64, vmess_name_extracted = raw_b64.split("#", 1)
+                vmess_name_extracted = unquote(vmess_name_extracted)
+            if "?" in raw_b64:
+                raw_b64, _ = raw_b64.split("?", 1)
+                
             decoded_json = safe_b64decode(raw_b64)
             if not decoded_json:
                 return None
             try:
                 data = json.loads(decoded_json)
-                # 兼容不同生成器产生的字段词书（如 add / port / id / ps）
                 server = data.get("add", "")
-                port = int(data.get("port", 0))
+                port_raw = data.get("port", 0)
+                try:
+                    port = int(port_raw)
+                except ValueError:
+                    port = 0
                 uuid = data.get("id", "")
-                name = unquote(data.get("ps", "VMess Node"))
                 
-                # 过滤不完整配置
+                # 读取命名备注
+                name = unquote(data.get("ps", "VMess Node"))
+                if (not name or name == "VMess Node") and vmess_name_extracted:
+                    name = vmess_name_extracted
+                
                 if not server or not port:
                     return None
                 
@@ -101,44 +115,46 @@ def _parse_node_raw(url: str) -> Optional[Dict]:
                     "params": data
                 }
             except Exception:
-                # 容错：有些 VMess 是 URI 格式 (类似 vless://)
                 pass
 
-        # 针对 URL-like 协议: vless://, ss://, trojan://, hysteria2://, hy2://
-        parsed = urlparse(url)
-        protocol = parsed.scheme.lower()
-        
+        # 针对通用 URL-like 协议: vless://, ss://, ssr://, trojan://, hysteria2://, hy2://, tuic://
+        protocol = ""
+        if "://" in url:
+            protocol, rest = url.split("://", 1)
+            protocol = protocol.lower()
+        else:
+            return None
+            
         if protocol in ["vless", "trojan", "ss", "ssr", "hysteria2", "hy2", "tuic"]:
             # 特殊解密处理 ss:// 全包 base64
-            if protocol == "ss":
-                payload = url[5:]
+            if protocol == "ss" and "@" not in rest:
+                payload = rest
                 fragment = ""
                 if "#" in payload:
                     payload, fragment = payload.split("#", 1)
-                if "@" not in payload:
-                    decoded = safe_b64decode(payload)
-                    if "@" in decoded:
-                        try:
-                            cred, host_port = decoded.rsplit("@", 1)
-                            if ":" in host_port:
-                                server, port_str = host_port.split(":", 1)
-                                int_port = int(port_str)
-                                name = unquote(fragment) if fragment else f"SS_{server}_{int_port}"
-                                return {
-                                    "protocol": "ss",
-                                    "server": server,
-                                    "port": int_port,
-                                    "uuid": cred,
-                                    "name": name,
-                                    "raw": url,
-                                    "params": {}
-                                }
-                        except Exception:
-                            pass
+                decoded = safe_b64decode(payload)
+                if "@" in decoded:
+                    try:
+                        cred, host_port = decoded.rsplit("@", 1)
+                        if ":" in host_port:
+                            server, port_str = host_port.split(":", 1)
+                            int_port = int(port_str)
+                            name = unquote(fragment) if fragment else f"SS_{server}_{int_port}"
+                            return {
+                                "protocol": "ss",
+                                "server": server,
+                                "port": int_port,
+                                "uuid": cred,
+                                "name": name,
+                                "raw": url,
+                                "params": {}
+                            }
+                    except Exception:
+                        pass
 
             # 特殊解密处理 ssr:// 全包 base64
             if protocol == "ssr":
-                payload = url[6:]
+                payload = rest
                 if "#" in payload:
                     payload, _ = payload.split("#", 1)
                 decoded = safe_b64decode(payload)
@@ -153,7 +169,6 @@ def _parse_node_raw(url: str) -> Optional[Dict]:
                             obfs = parts[4]
                             pass_b64 = parts[5]
                             name = f"SSR_{server}_{int_port}"
-                            # 尝试解析带 remarks 的参数
                             if "/" in pass_b64:
                                 pass_part, query_part = pass_b64.split("/", 1)
                                 if query_part.startswith("?"):
@@ -173,34 +188,71 @@ def _parse_node_raw(url: str) -> Optional[Dict]:
                         except Exception:
                             pass
 
-            server = parsed.hostname
-            port = parsed.port
+            # ================= 坚如磐石的单轨切分 =================
+            # 1. 拆出备注 fragment
+            fragment = ""
+            if "#" in rest:
+                rest, fragment = rest.split("#", 1)
+            name = unquote(fragment) if fragment else ""
+            
+            # 2. 扣除查询参数
+            query_str = ""
+            if "?" in rest:
+                rest, query_str = rest.split("?", 1)
+            queries = parse_qs(query_str)
+            params = {k: v[0] for k, v in queries.items()}
+
+            # 3. 抓取登陆信息 (user_info) 跟主机
+            user_info = ""
+            if "@" in rest:
+                # 倒序查找，免除 uuid/密码中的 @ 字符干扰
+                user_info, rest = rest.rsplit("@", 1)
+            
+            # 4. 解析服务器和端口 (支持 IPv6 [xxxx:xxxx::1]:port 和 常规 ipv4/host:port)
+            server = rest
+            port = 0
+            if rest.startswith("[") and "]:" in rest:
+                server_part, port_str = rest.split("]:", 1)
+                server = server_part + "]"
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    pass
+            elif ":" in rest:
+                server_part, port_str = rest.rsplit(":", 1)
+                server = server_part
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    pass
+
+            if not server or not port:
+                # 人工解析出现任何不规则漏气，自动回退到 urlparse 进行保底兼容
+                try:
+                    parsed = urlparse(url)
+                    server = parsed.hostname or ""
+                    port = parsed.port or 0
+                except Exception:
+                    pass
+
             if not server or not port:
                 return None
 
-            # 提取名称 Remarks (即 URL 中的 fragment # 后面的部分)
-            name = unquote(parsed.fragment) if parsed.fragment else f"{protocol.upper()}_{server}_{port}"
-            # 提取连接主凭证
-            user_info = unquote(parsed.username) if parsed.username else ""
-            if not user_info and parsed.netloc and "@" in parsed.netloc:
-                user_info = parsed.netloc.split("@")[0]
-            
-            # 收集查询参数
-            queries = parse_qs(parsed.query)
-            params = {k: v[0] for k, v in queries.items()}
+            # 若上面切割没找到 name 备注，拟定默认高频命名
+            if not name:
+                name = f"{protocol.upper()}_{server}_{port}"
 
             return {
                 "protocol": protocol,
                 "server": server,
                 "port": int(port),
-                "uuid": user_info,  # 对于 SS 是 method:password 的 base64，Trojan/VLESS 是 UUID / 密码
+                "uuid": user_info,
                 "name": name,
                 "raw": url,
                 "params": params
             }
 
     except Exception:
-        # 异常跳过，防止单个不合规范节点崩溃整个主程序
         return None
     return None
 

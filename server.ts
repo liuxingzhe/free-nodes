@@ -37,19 +37,36 @@ async function startServer() {
       if (!urlStr) return null;
 
       if (urlStr.startsWith("vmess://")) {
-        const rawB64 = urlStr.slice(8);
+        let rawB64 = urlStr.slice(8);
+        let vmessNameExtracted = "";
+        if (rawB64.includes("#")) {
+          const parts = rawB64.split("#");
+          rawB64 = parts[0];
+          vmessNameExtracted = decodeURIComponent(parts[1] || "");
+        }
+        if (rawB64.includes("?")) {
+          rawB64 = rawB64.split("?")[0];
+        }
+        
         try {
+          rawB64 = rawB64.replace(/\s+/g, "");
           const decoded = Buffer.from(rawB64, "base64").toString("utf-8");
           const data = JSON.parse(decoded);
           const server = data.add || "";
           const port = parseInt(data.port) || 0;
           if (!server || !port) return null;
+          
+          let name = decodeURIComponent(data.ps || "VMess Node");
+          if ((!name || name === "VMess Node") && vmessNameExtracted) {
+            name = vmessNameExtracted;
+          }
+          
           return {
             protocol: "vmess",
             server,
             port,
             uuid: data.id || "",
-            name: decodeURIComponent(data.ps || "VMess Node"),
+            name: name,
             raw: urlStr
           };
         } catch (e) {
@@ -57,27 +74,69 @@ async function startServer() {
         }
       }
 
-      const parsed = new URL(urlStr);
-      const protocol = parsed.protocol.replace(":", "").toLowerCase();
+      if (!urlStr.includes("://")) return null;
+      const protoIndex = urlStr.indexOf("://");
+      const protocol = urlStr.substring(0, protoIndex).toLowerCase();
       const validProtocols = ["vless", "trojan", "ss", "ssr", "hysteria2", "hy2", "tuic"];
       if (!validProtocols.includes(protocol)) return null;
 
-      const server = parsed.hostname;
-      const port = parseInt(parsed.port);
-      if (!server || !port) return null;
-
-      const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : `${protocol.toUpperCase()}_${server}_${port}`;
-      let uuid = parsed.username || "";
-      if (!uuid && parsed.href.includes("@")) {
-        uuid = parsed.href.split("@")[0].split("//")[1] || "";
+      let rest = urlStr.substring(protoIndex + 3);
+      
+      // 1. 备注 fragment
+      let fragment = "";
+      if (rest.includes("#")) {
+        const idx = rest.indexOf("#");
+        fragment = rest.substring(idx + 1);
+        rest = rest.substring(0, idx);
       }
+      const name = fragment ? decodeURIComponent(fragment) : "";
+
+      // 2. 扣除查询参数
+      let queryStr = "";
+      if (rest.includes("?")) {
+        const idx = rest.indexOf("?");
+        queryStr = rest.substring(idx + 1);
+        rest = rest.substring(0, idx);
+      }
+
+      // 3. 登录信息 user_info (如 ss/vless/trojan 的 uuid、加密、密码)
+      let uuid = "";
+      if (rest.includes("@")) {
+        const idx = rest.lastIndexOf("@");
+        uuid = rest.substring(0, idx);
+        rest = rest.substring(idx + 1);
+      }
+
+      // 4. 服务器和端口 (支持 IPv6)
+      let server = rest;
+      let port = 0;
+      if (rest.startsWith("[") && rest.includes("]:")) {
+        const idx = rest.indexOf("]:");
+        server = rest.substring(0, idx + 1);
+        port = parseInt(rest.substring(idx + 2)) || 0;
+      } else if (rest.includes(":")) {
+        const idx = rest.lastIndexOf(":");
+        server = rest.substring(0, idx);
+        port = parseInt(rest.substring(idx + 1)) || 0;
+      }
+
+      // 安全回滚原 URL 兜底
+      if (!server || !port) {
+        try {
+          const parsedObj = new URL(urlStr);
+          server = parsedObj.hostname || "";
+          port = parseInt(parsedObj.port) || 0;
+        } catch {}
+      }
+
+      if (!server || !port) return null;
 
       return {
         protocol,
         server,
         port,
         uuid: decodeURIComponent(uuid),
-        name: name,
+        name: name || `${protocol.toUpperCase()}_${server}_${port}`,
         raw: urlStr
       };
     } catch {
@@ -134,6 +193,39 @@ async function startServer() {
       console.log(`[ProxyScraper] ${msg}`);
     };
 
+    const robustFetch = async (url: string, options: any): Promise<Response> => {
+      const urlsToTry = [url];
+      if (url.includes("raw.githubusercontent.com")) {
+        urlsToTry.push(url.replace("raw.githubusercontent.com", "raw.gitmirror.com"));
+        urlsToTry.push(url.replace("raw.githubusercontent.com", "raw.kkgithub.com"));
+        urlsToTry.push(url.replace("raw.githubusercontent.com", "raw.fofaproxy.com"));
+      }
+      
+      let lastErr: any = null;
+      for (let i = 0; i < urlsToTry.length; i++) {
+        const targetUrl = urlsToTry[i];
+        try {
+          log(`  ↳ 发起实时请求 (尝试 ${i + 1}/${urlsToTry.length}): ${targetUrl}`);
+          const res = await fetch(targetUrl, options);
+          if (res.ok) {
+            const cloneRes = res.clone();
+            const text = await cloneRes.text();
+            if (text && text.trim().length > 100) {
+              return res;
+            } else {
+              log(`  ↳ 警告：从该源/镜像获取的响应正文过短，转入备份链路`);
+            }
+          } else {
+            log(`  ↳ 告知：该源/镜像网络请求返回状态码 ${res.status}`);
+          }
+        } catch (e: any) {
+          log(`  ↳ 警报：网络链路发生故障 (${targetUrl}): ${e.message}`);
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error(`所有镜像加速源和原生通道皆不可达: ${url}`);
+    };
+
     log("==============================================");
     log("🚀 启动网页端 Node.js 双元引擎实时拉取测试...");
     log("==============================================");
@@ -156,9 +248,9 @@ async function startServer() {
       for (const src of githubSources) {
         log(`正在抓取 GitHub/Sub 源: "${src.name}"`);
         try {
-          const response = await fetch(src.url, {
+          const response = await robustFetch(src.url, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-            signal: AbortSignal.timeout(10000)
+            signal: AbortSignal.timeout(12000)
           });
           if (!response.ok) {
             log(`⚠️ 抓取失败 (HTTP ${response.status}): ${src.name}`);
@@ -197,9 +289,9 @@ async function startServer() {
       for (const chan of telegramChannels) {
         log(`正在抓取 Telegram Web 预览: https://t.me/s/${chan.channel}`);
         try {
-          const response = await fetch(`https://t.me/s/${chan.channel}`, {
+          const response = await robustFetch(`https://t.me/s/${chan.channel}`, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-            signal: AbortSignal.timeout(10000)
+            signal: AbortSignal.timeout(12000)
           });
           if (!response.ok) {
             log(`⚠️ 抓取 TG 渠道预览失败 (HTTP ${response.status})`);
@@ -222,7 +314,7 @@ async function startServer() {
       for (const ws of webSources) {
         log(`正在抓取通用网页源: "${ws.name}" (${ws.url})`);
         try {
-          const wsResponse = await fetch(ws.url, {
+          const wsResponse = await robustFetch(ws.url, {
             headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
             signal: AbortSignal.timeout(15000)
           });
@@ -290,9 +382,9 @@ async function startServer() {
 
             for (const articleUrl of targetArticles) {
               try {
-                const artRes = await fetch(articleUrl, {
+                const artRes = await robustFetch(articleUrl, {
                   headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-                  signal: AbortSignal.timeout(10000)
+                  signal: AbortSignal.timeout(12000)
                 });
                 if (!artRes.ok) continue;
                 const artHtml = await artRes.text();
@@ -332,9 +424,9 @@ async function startServer() {
 
           for (const subUrl of finalSubLinks) {
             try {
-              const subRes = await fetch(subUrl, {
+              const subRes = await robustFetch(subUrl, {
                 headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(12000)
               });
               if (!subRes.ok) continue;
               const subText = await subRes.text();

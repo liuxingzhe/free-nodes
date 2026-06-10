@@ -746,8 +746,12 @@ async function startServer() {
           clashProxiesYaml += `    alterId: ${alterId}\n`;
           clashProxiesYaml += `    cipher: "${cipher}"\n`;
           clashProxiesYaml += `    tls: ${tls}\n`;
-          if (tls && params.sni) {
-            clashProxiesYaml += `    servername: "${params.sni}"\n`;
+          if (tls) {
+            clashProxiesYaml += `    skip-cert-verify: true\n`;
+          }
+          const sniVal = params.sni || params.host || "";
+          if (tls && sniVal) {
+            clashProxiesYaml += `    servername: "${sniVal}"\n`;
           }
           if (network === "ws") {
             clashProxiesYaml += `    network: ws\n`;
@@ -768,11 +772,15 @@ async function startServer() {
           clashProxiesYaml += `    uuid: "${uuid}"\n`;
           clashProxiesYaml += `    cipher: "auto"\n`;
           clashProxiesYaml += `    tls: ${tls}\n`;
+          if (tls) {
+            clashProxiesYaml += `    skip-cert-verify: true\n`;
+          }
           if (params.flow) {
             clashProxiesYaml += `    flow: "${params.flow}"\n`;
           }
-          if (tls && params.sni) {
-            clashProxiesYaml += `    servername: "${params.sni}"\n`;
+          const sniVal = params.sni || params.host || "";
+          if (tls && sniVal) {
+            clashProxiesYaml += `    servername: "${sniVal}"\n`;
           }
           if (network === "ws") {
             clashProxiesYaml += `    network: ws\n`;
@@ -787,19 +795,25 @@ async function startServer() {
         } else if (node.protocol === "trojan") {
           const params = node.params || {};
           clashProxiesYaml += `    password: "${node.uuid}"\n`;
-          if (params.sni) {
-            clashProxiesYaml += `    sni: "${params.sni}"\n`;
+          const sniVal = params.sni || params.host || "";
+          if (sniVal) {
+            clashProxiesYaml += `    sni: "${sniVal}"\n`;
           }
+          clashProxiesYaml += `    skip-cert-verify: true\n`;
           clashProxiesYaml += `    udp: true\n`;
         } else if (node.protocol === "ss") {
           let method = "aes-256-gcm";
           let password = node.uuid;
           let decodedCred = "";
           try {
-            decodedCred = Buffer.from(node.uuid, "base64").toString("utf-8");
+            let cleanB64 = node.uuid.trim().replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+            while (cleanB64.length % 4 !== 0) {
+              cleanB64 += "=";
+            }
+            decodedCred = Buffer.from(cleanB64, "base64").toString("utf-8");
           } catch {}
           
-          if (decodedCred.includes(":")) {
+          if (decodedCred && decodedCred.includes(":") && !/^\s*$/.test(decodedCred)) {
             const parts = decodedCred.split(":");
             method = parts[0];
             password = parts[1];
@@ -814,8 +828,9 @@ async function startServer() {
         } else if (node.protocol === "hysteria2" || node.protocol === "hy2") {
           const params = node.params || {};
           clashProxiesYaml += `    password: "${node.uuid}"\n`;
-          const sni = params.sni || node.server;
+          const sni = params.sni || params.host || node.server;
           clashProxiesYaml += `    sni: "${sni}"\n`;
+          clashProxiesYaml += `    skip-cert-verify: true\n`;
           if (params.obfs) {
             clashProxiesYaml += `    obfs: "${params.obfs}"\n`;
             if (params["obfs-password"]) {
@@ -856,7 +871,8 @@ async function startServer() {
           if (params.tls === "tls" || params.tls === "1" || params.tls === 1 || params.tls === true) {
             outbound.tls = {
               enabled: true,
-              server_name: params.sni || node.server
+              server_name: params.sni || params.host || node.server,
+              insecure: true
             };
           }
         } else if (protocol === "vless") {
@@ -865,7 +881,8 @@ async function startServer() {
           if (params.security === "tls" || params.security === "xtls" || params.tls === "1" || params.tls === 1 || params.tls === true) {
             outbound.tls = {
               enabled: true,
-              server_name: params.sni || node.server
+              server_name: params.sni || params.host || node.server,
+              insecure: true
             };
           }
           const transport_type = params.type || "tcp";
@@ -880,17 +897,22 @@ async function startServer() {
           outbound.password = uuid;
           outbound.tls = {
             enabled: true,
-            server_name: params.sni || node.server
+            server_name: params.sni || params.host || node.server,
+            insecure: true
           };
         } else if (protocol === "ss") {
           let method = "aes-256-gcm";
           let password = uuid;
           let decodedCred = "";
           try {
-            decodedCred = Buffer.from(uuid, "base64").toString("utf-8");
+            let cleanB64 = uuid.trim().replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+            while (cleanB64.length % 4 !== 0) {
+              cleanB64 += "=";
+            }
+            decodedCred = Buffer.from(cleanB64, "base64").toString("utf-8");
           } catch {}
           
-          if (decodedCred.includes(":")) {
+          if (decodedCred && decodedCred.includes(":") && !/^\s*$/.test(decodedCred)) {
             const parts = decodedCred.split(":");
             method = parts[0];
             password = parts[1];
@@ -905,7 +927,8 @@ async function startServer() {
           outbound.password = uuid;
           outbound.tls = {
             enabled: true,
-            server_name: params.sni || node.server
+            server_name: params.sni || params.host || node.server,
+            insecure: true
           };
         }
 

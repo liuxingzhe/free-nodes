@@ -1,0 +1,132 @@
+# Clash YAML 模版配置文件
+# 完美契合规则流和自启测速切换
+
+port: 7890
+socks-port: 7891
+redir-port: 7892
+mixed-port: 7893
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: false
+external-controller: 127.0.0.1:9090
+
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  default-nameserver:
+    - 114.114.114.114
+    - 8.8.8.8
+  nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+    - https://dns.google/dns-query
+
+# 二元动态宏渲染节点
+proxies:
+{%- for p in proxies %}
+  - name: "{{ p.name }}"
+    type: {{ p.type }}
+    server: "{{ p.server }}"
+    port: {{ p.port }}
+    {% if p.type == "vmess" -%}
+    uuid: "{{ p.uuid }}"
+    alterId: {{ p.alterId }}
+    cipher: "{{ p.cipher }}"
+    tls: {{ 'true' if p.tls else 'false' }}
+    network: "{{ p.network }}"
+    {% if p.network == "ws" -%}
+    ws-opts:
+      path: "{{ p['ws-opts'].path }}"
+      headers:
+        Host: "{{ p['ws-opts'].headers.Host }}"
+    {%- endif %}
+    {% if p.servername -%}
+    servername: "{{ p.servername }}"
+    {%- endif %}
+    {%- elif p.type == "vless" -%}
+    uuid: "{{ p.uuid }}"
+    cipher: "{{ p.cipher }}"
+    tls: {{ 'true' if p.tls else 'false' }}
+    network: "{{ p.network }}"
+    {% if p.flow -%}
+    flow: "{{ p.flow }}"
+    {%- endif %}
+    {% if p.network == "ws" -%}
+    ws-opts:
+      path: "{{ p['ws-opts'].path }}"
+      headers:
+        Host: "{{ p['ws-opts'].headers.Host }}"
+    {%- endif %}
+    {% if p.servername -%}
+    servername: "{{ p.servername }}"
+    {%- endif %}
+    {%- elif p.type == "trojan" -%}
+    password: "{{ p.password }}"
+    udp: {{ 'true' if p.udp else 'false' }}
+    {% if p.sni -%}
+    sni: "{{ p.sni }}"
+    {%- endif %}
+    {%- elif p.type == "ss" -%}
+    cipher: "{{ p.cipher }}"
+    password: "{{ p.password }}"
+    udp: {{ 'true' if p.udp else 'false' }}
+    {%- elif p.type == "hysteria2" -%}
+    password: "{{ p.password }}"
+    {% if p.sni -%}
+    sni: "{{ p.sni }}"
+    {%- endif %}
+    {% if p.obfs -%}
+    obfs: "{{ p.obfs }}"
+    obfs-password: "{{ p.obfs_password }}"
+    {%- endif %}
+    {%- endif %}
+{%- endfor %}
+
+proxy-groups:
+  # 默认最高优先级策略：手动在测速和各个节点间自由选择切换
+  - name: {{ group_name }}
+    type: select
+    proxies:
+      - ⚡ 自动最快
+      - 🔮 智能负载
+      - DIRECT
+{%- for name in proxy_names %}
+      - "{{ name }}"
+{%- endfor %}
+
+  # 测速选择：每隔 5 分钟向真实测试目标发送 HEAD 连接，自动切入延迟最低极速节点
+  - name: ⚡ 自动最快
+    type: url-test
+    url: http://cp.cloudflare.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+{%- for name in proxy_names %}
+      - "{{ name }}"
+{%- endfor %}
+
+  # 重负载分配器
+  - name: 🔮 智能负载
+    type: load-balance
+    url: http://cp.cloudflare.com/generate_204
+    interval: 600
+    strategy: consistent-hashing
+    proxies:
+{%- for name in proxy_names %}
+      - "{{ name }}"
+{%- endfor %}
+
+rules:
+  - DOMAIN-SUFFIX,google.com,{{ group_name }}
+  - DOMAIN-SUFFIX,github.com,{{ group_name }}
+  - DOMAIN-SUFFIX,githubusercontent.com,{{ group_name }}
+  - DOMAIN-SUFFIX,telegram.org,{{ group_name }}
+  - DOMAIN-keyword,youtube,{{ group_name }}
+  - DOMAIN-keyword,twitter,{{ group_name }}
+  - DOMAIN-keyword,netflix,{{ group_name }}
+  - GEOIP,CN,DIRECT
+  - MATCH,{{ group_name }}

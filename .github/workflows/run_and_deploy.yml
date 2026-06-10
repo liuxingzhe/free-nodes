@@ -1,0 +1,57 @@
+name: AutoProxyGenerator CI/CD
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # 每6小时运行一次
+  workflow_dispatch:      # 支持手动触发
+
+permissions:
+  contents: write         # 授予部署到 gh-pages 的写权限
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Download LiteSpeedTest Binary
+        run: |
+          # 自动获取并下载适用于 Linux amd64 的 LiteSpeedTest 二进制文件
+          LATEST_TAG=$(curl -s https://api.github.com/repos/xxf098/LiteSpeedTest/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Latest LiteSpeedTest Version: $LATEST_TAG"
+          
+          # 下载包含 linux_amd64 的压缩包
+          DOWNLOAD_URL="https://github.com/xxf098/LiteSpeedTest/releases/download/${LATEST_TAG}/lite-speedtest_${LATEST_TAG}_linux_amd64.tar.gz"
+          curl -L -o litespeedtest.tar.gz "$DOWNLOAD_URL"
+          
+          # 解压并分配权限
+          tar -xzf litespeedtest.tar.gz
+          # 查找解压出的可执行二进制，重命名为 lite-speedtest 并放到 utils 路径或系统路径
+          mv lite-speedtest utils/lite-speedtest || mv lite-speedtest-linux-amd64 utils/lite-speedtest || true
+          chmod +x utils/lite-speedtest
+
+      - name: Run Proxy Generator
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mkdir -p dist
+          python main.py
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true

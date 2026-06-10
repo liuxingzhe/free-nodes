@@ -1,0 +1,6 @@
+{
+  "name": "AutoProxyGenerator",
+  "description": "自动化免费代理节点爬取、多线程测速筛选与 Clash / Sing-box / Base64 多格式订阅文件分发系统",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

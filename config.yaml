@@ -10,9 +10,15 @@ scrapers:
     - name: "Zizifn Auto Nodes"
       url: "https://raw.githubusercontent.com/zizifn/edgetunnel/main/sub"
       type: "base64"
+    - name: "V2ray Free Share"
+      url: "https://raw.githubusercontent.com/v2ray-free/share/main/sub"
+      type: "base64"
     - name: "Raw Node List"
       url: "https://raw.githubusercontent.com/vless-free/list/main/nodes.txt"
       type: "raw"     # raw：每一行为节点链接的纯文本格式
+    - name: "Jsnzkpg Share"
+      url: "https://raw.githubusercontent.com/Jsnzkpg/v2ray-share/main/shared.txt"
+      type: "raw"
 
   # Telegram 公开频道（无需 App API 密钥，通过网页预览爬取）
   telegram_channels:
@@ -26,17 +32,26 @@ scrapers:
     - name: "YoYaPai Clash"
       url: "https://yoyapai.com/tag/clash-meta%e8%8a%82%e7%82%b9"
       depth: 2
+    - name: "NoMoreLost Clash"
+      url: "https://raw.githubusercontent.com/peasoft/NoMoreLost/main/clash.yaml"
+      depth: 1
+    - name: "AutoNode Clash"
+      url: "https://raw.githubusercontent.com/w1770946466/auto_node/main/clash.yaml"
+      depth: 1
+    - name: "ToLinkShare Clash"
+      url: "https://raw.githubusercontent.com/tolinkshare/tolinkshare/main/clash.yaml"
+      depth: 1
 
 # 测速测试过滤选项配置
 tester:
   threads: 16             # 测速线程并发数
-  timeout_ms: 10000       # 握手和测速超时时长（毫秒）
-  min_download_mbps: 1.0  # 判定为优质节点的最低下载速度限制 (MB/s)
-  max_ping_ms: 3000       # 判定为优质节点的最大允许 Ping 值延迟 (ms)
-  test_mode: "pingandspeed" # 测速模式: pingonly (仅连接测试) 或 pingandspeed (带测速)
+  timeout_ms: 8000        # 握手和测速超时时长（毫秒）
+  min_download_mbps: 0.05 # 判定为优质节点的最低下载速度限制 (改为 50KB/s，大大提高节点成活率，保证高可用)
+  max_ping_ms: 5000       # 判定为优质节点的最大允许 Ping 值延迟 (ms)
+  test_mode: "pingonly"   # 推荐改为 "pingonly"：在 CI 环境下测载极易被阻断，以在线(Ping通)作为最关键的筛选标准，可以吐出大量最新节点
   test_url: "http://cp.cloudflare.com/generate_204" # 延迟测试目的地址
 
 # 订阅生成转换选项
 convertor:
-  max_output_nodes: 30    # 最终输出的优质节点最大数量（Top 30）
+  max_output_nodes: 80    # 扩展最大输出节点数至 80，提高使用体验
   clash_group_name: "AutoProxy" # Clash 策略组名称

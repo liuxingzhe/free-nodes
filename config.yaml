@@ -13,6 +13,9 @@ scrapers:
     - name: "YoYaPai Clash"
       url: "https://yoyapai.com/tag/clash-meta%e8%8a%82%e7%82%b9"
       depth: 2
+    - name: "FreeClashNode"
+      url: "https://www.freeclashnode.com/free-node/"
+      depth: 2
 
 # 备份屏蔽掉的抓取源清单：
 # github_sources_backup:

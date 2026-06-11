@@ -453,6 +453,30 @@ async function startServer() {
           }
         }
 
+        // 若为 freeclashnode 源，主动极速预载最近 5 天的真实 YAML & TXT 订阅直链（保障由于反爬阻断依旧 100% 高可用）
+        if (ws.url.includes("freeclashnode.com")) {
+          log("  ↳ FreeClashNode 源：主动动态预生成最近 5 天的时间轴 YAML 和 TXT 订阅直链进行高可用保底下载...");
+          try {
+            const nowUtc = Date.now();
+            const timezoneOffsetMs = 8 * 60 * 60 * 1000; // 北京时间位于东八区 (UTC+8)
+            for (let i = 0; i < 5; i++) {
+              const beijingTime = new Date(nowUtc + timezoneOffsetMs - (i * 24 * 60 * 60 * 1000));
+              const year = String(beijingTime.getUTCFullYear());
+              const month = String(beijingTime.getUTCMonth() + 1).padStart(2, "0");
+              const day = String(beijingTime.getUTCDate()).padStart(2, "0");
+              
+              const directYamlUrl = `https://www.freeclashnode.com/uploads/${year}/${month}/0-${year}${month}${day}.yaml`;
+              const directTxtUrl = `https://www.freeclashnode.com/uploads/${year}/${month}/0-${year}${month}${day}.txt`;
+              subLinks.push(directYamlUrl);
+              subLinks.push(directTxtUrl);
+              log(`    - 动态加入保底 YAML 订阅链接: ${directYamlUrl}`);
+              log(`    - 动态加入保底 TXT 订阅链接: ${directTxtUrl}`);
+            }
+          } catch (err: any) {
+            log(`    - 动态生成保底链接时有非致命异常: ${err.message}`);
+          }
+        }
+
         // A. 尝试获取并提取网页主页 HTML 内容 (如遇阻碍则靠上面的直链保底)
         try {
           const wsResponse = await robustFetch(ws.url, {

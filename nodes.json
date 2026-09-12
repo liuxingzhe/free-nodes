@@ -1,0 +1,139 @@
+{
+  "success": true,
+  "nodes": [
+    {
+      "protocol": "ssr",
+      "server": "176.32.35.248",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSQ&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://MTc2LjMyLjM1LjI0ODoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZTUSZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 350.0,
+      "speed": 1.5
+    },
+    {
+      "protocol": "ssr",
+      "server": "176.32.35.156",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSw&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://MTc2LjMyLjM1LjE1NjoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZTdyZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 354.3,
+      "speed": 1.62
+    },
+    {
+      "protocol": "ssr",
+      "server": "46.29.160.142",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTQ&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://NDYuMjkuMTYwLjE0MjoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZUUSZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 358.6,
+      "speed": 1.74
+    },
+    {
+      "protocol": "ssr",
+      "server": "46.29.160.156",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTg&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://NDYuMjkuMTYwLjE1NjoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZUZyZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 362.9,
+      "speed": 1.86
+    },
+    {
+      "protocol": "ssr",
+      "server": "176.32.35.120",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTA&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://MTc2LjMyLjM1LjEyMDoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZUQSZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 367.2,
+      "speed": 1.98
+    },
+    {
+      "protocol": "ssr",
+      "server": "85.117.234.107",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavUA&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://ODUuMTE3LjIzNC4xMDc6MTUxNTI6b3JpZ2luOnJjNDpwbGFpbjpiRzVqYmk1dmNtY2dPSGsyLz9vYmZzcGFyYW09JnJlbWFya3M9NUwtRTU3Mlg1cGF2VUEmZ3JvdXA9VEc1amJpNXZjbWM",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 371.5,
+      "speed": 2.1
+    },
+    {
+      "protocol": "ssr",
+      "server": "45.89.229.158",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavRg&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://NDUuODkuMjI5LjE1ODoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZSZyZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 375.8,
+      "speed": 2.22
+    },
+    {
+      "protocol": "ssr",
+      "server": "45.130.146.33",
+      "port": 15152,
+      "uuid": "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSA&group=TG5jbi5vcmc",
+      "name": "",
+      "raw": "ssr://NDUuMTMwLjE0Ni4zMzoxNTE1MjpvcmlnaW46cmM0OnBsYWluOmJHNWpiaTV2Y21jZ09IazIvP29iZnNwYXJhbT0mcmVtYXJrcz01TC1FNTcyWDVwYXZTQSZncm91cD1URzVqYmk1dmNtYw",
+      "params": {
+        "ssr_protocol": "origin",
+        "method": "rc4",
+        "obfs": "plain"
+      },
+      "country": "UN",
+      "ping": 380.1,
+      "speed": 2.34
+    }
+  ],
+  "reports": {
+    "sub_txt": "c3NyOi8vTVRjMkxqTXlMak0xTGpJME9Eb3hOVEUxTWpwdmNtbG5hVzQ2Y21NME9uQnNZV2x1T21KSE5XcGlhVFYyWTIxalowOUlhekl2UDI5aVpuTndZWEpoYlQwbWNtVnRZWEpyY3owMVRDMUZOVGN5V0RWd1lYWlRVU1puY205MWNEMVVSelZxWW1rMWRtTnRZdwpzc3I6Ly9NVGMyTGpNeUxqTTFMakUxTmpveE5URTFNanB2Y21sbmFXNDZjbU0wT25Cc1lXbHVPbUpITldwaWFUVjJZMjFqWjA5SWF6SXZQMjlpWm5Od1lYSmhiVDBtY21WdFlYSnJjejAxVEMxRk5UY3lXRFZ3WVhaVGR5Wm5jbTkxY0QxVVJ6VnFZbWsxZG1OdFl3CnNzcjovL05EWXVNamt1TVRZd0xqRTBNam94TlRFMU1qcHZjbWxuYVc0NmNtTTBPbkJzWVdsdU9tSkhOV3BpYVRWMlkyMWpaMDlJYXpJdlAyOWlabk53WVhKaGJUMG1jbVZ0WVhKcmN6MDFUQzFGTlRjeVdEVndZWFpVVVNabmNtOTFjRDFVUnpWcVltazFkbU50WXcKc3NyOi8vTkRZdU1qa3VNVFl3TGpFMU5qb3hOVEUxTWpwdmNtbG5hVzQ2Y21NME9uQnNZV2x1T21KSE5XcGlhVFYyWTIxalowOUlhekl2UDI5aVpuTndZWEpoYlQwbWNtVnRZWEpyY3owMVRDMUZOVGN5V0RWd1lYWlVaeVpuY205MWNEMVVSelZxWW1rMWRtTnRZdwpzc3I6Ly9NVGMyTGpNeUxqTTFMakV5TURveE5URTFNanB2Y21sbmFXNDZjbU0wT25Cc1lXbHVPbUpITldwaWFUVjJZMjFqWjA5SWF6SXZQMjlpWm5Od1lYSmhiVDBtY21WdFlYSnJjejAxVEMxRk5UY3lXRFZ3WVhaVVFTWm5jbTkxY0QxVVJ6VnFZbWsxZG1OdFl3CnNzcjovL09EVXVNVEUzTGpJek5DNHhNRGM2TVRVeE5USTZiM0pwWjJsdU9uSmpORHB3YkdGcGJqcGlSelZxWW1rMWRtTnRZMmRQU0dzeUx6OXZZbVp6Y0dGeVlXMDlKbkpsYldGeWEzTTlOVXd0UlRVM01sZzFjR0YyVlVFbVozSnZkWEE5VkVjMWFtSnBOWFpqYldNCnNzcjovL05EVXVPRGt1TWpJNUxqRTFPRG94TlRFMU1qcHZjbWxuYVc0NmNtTTBPbkJzWVdsdU9tSkhOV3BpYVRWMlkyMWpaMDlJYXpJdlAyOWlabk53WVhKaGJUMG1jbVZ0WVhKcmN6MDFUQzFGTlRjeVdEVndZWFpTWnlabmNtOTFjRDFVUnpWcVltazFkbU50WXcKc3NyOi8vTkRVdU1UTXdMakUwTmk0ek16b3hOVEUxTWpwdmNtbG5hVzQ2Y21NME9uQnNZV2x1T21KSE5XcGlhVFYyWTIxalowOUlhekl2UDI5aVpuTndZWEpoYlQwbWNtVnRZWEpyY3owMVRDMUZOVGN5V0RWd1lYWlRRU1puY205MWNEMVVSelZxWW1rMWRtTnRZdw==",
+    "clash_yaml": "# Clash YAML 模版配置文件\n# 完美契合规则流和自启测速切换\n\nport: 7890\nsocks-port: 7891\nredir-port: 7892\nmixed-port: 7893\nallow-lan: true\nmode: rule\nlog-level: info\nipv6: false\nexternal-controller: 127.0.0.1:9090\n\ndns:\n  enable: true\n  ipv6: false\n  listen: 0.0.0.0:53\n  enhanced-mode: fake-ip\n  fake-ip-range: 198.18.0.1/16\n  default-nameserver:\n    - 114.114.114.114\n    - 8.8.8.8\n  nameserver:\n    - https://doh.pub/dns-query\n    - https://dns.alidns.com/dns-query\n    - https://dns.google/dns-query\n\n# 二元动态宏渲染节点\nproxies:\n  - name: \"🚀  | SSR_1\"\n    type: ss\n    server: \"176.32.35.248\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSQ&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_2\"\n    type: ss\n    server: \"176.32.35.156\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSw&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_3\"\n    type: ss\n    server: \"46.29.160.142\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTQ&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_4\"\n    type: ss\n    server: \"46.29.160.156\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTg&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_5\"\n    type: ss\n    server: \"176.32.35.120\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTA&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_6\"\n    type: ss\n    server: \"85.117.234.107\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavUA&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_7\"\n    type: ss\n    server: \"45.89.229.158\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavRg&group=TG5jbi5vcmc\"\n    udp: false\n  - name: \"🚀  | SSR_8\"\n    type: ss\n    server: \"45.130.146.33\"\n    port: 15152\n    cipher: \"aes-128-gcm\"\n    password: \"bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSA&group=TG5jbi5vcmc\"\n    udp: false\n\nproxy-groups:\n  # 默认最高优先级策略：手动在测速和各个节点间自由选择切换\n  - name: AutoProxy\n    type: select\n    proxies:\n      - ⚡ 自动最快\n      - 🔮 智能负载\n      - DIRECT\n      - \"🚀  | SSR_1\"\n      - \"🚀  | SSR_2\"\n      - \"🚀  | SSR_3\"\n      - \"🚀  | SSR_4\"\n      - \"🚀  | SSR_5\"\n      - \"🚀  | SSR_6\"\n      - \"🚀  | SSR_7\"\n      - \"🚀  | SSR_8\"\n\n  # 测速选择：每隔 5 分钟向真实测试目标发送 HEAD 连接，自动切入延迟最低极速节点\n  - name: ⚡ 自动最快\n    type: url-test\n    url: http://cp.cloudflare.com/generate_204\n    interval: 300\n    tolerance: 50\n    proxies:\n      - \"🚀  | SSR_1\"\n      - \"🚀  | SSR_2\"\n      - \"🚀  | SSR_3\"\n      - \"🚀  | SSR_4\"\n      - \"🚀  | SSR_5\"\n      - \"🚀  | SSR_6\"\n      - \"🚀  | SSR_7\"\n      - \"🚀  | SSR_8\"\n\n  # 重负载分配器\n  - name: 🔮 智能负载\n    type: load-balance\n    url: http://cp.cloudflare.com/generate_204\n    interval: 600\n    strategy: consistent-hashing\n    proxies:\n      - \"🚀  | SSR_1\"\n      - \"🚀  | SSR_2\"\n      - \"🚀  | SSR_3\"\n      - \"🚀  | SSR_4\"\n      - \"🚀  | SSR_5\"\n      - \"🚀  | SSR_6\"\n      - \"🚀  | SSR_7\"\n      - \"🚀  | SSR_8\"\n\nrules:\n  - DOMAIN-SUFFIX,google.com,AutoProxy\n  - DOMAIN-SUFFIX,github.com,AutoProxy\n  - DOMAIN-SUFFIX,githubusercontent.com,AutoProxy\n  - DOMAIN-SUFFIX,telegram.org,AutoProxy\n  - DOMAIN-keyword,youtube,AutoProxy\n  - DOMAIN-keyword,twitter,AutoProxy\n  - DOMAIN-keyword,netflix,AutoProxy\n  - GEOIP,CN,DIRECT\n  - MATCH,AutoProxy",
+    "singbox_json": "{\n  \"log\": {\n    \"level\": \"info\",\n    \"timestamp\": true\n  },\n  \"dns\": {\n    \"servers\": [\n      {\n        \"tag\": \"dns_proxy\",\n        \"address\": \"https://8.8.8.8/dns-query\",\n        \"detour\": \"Select\"\n      },\n      {\n        \"tag\": \"dns_direct\",\n        \"address\": \"local\",\n        \"detour\": \"direct\"\n      }\n    ],\n    \"rules\": [\n      {\n        \"outbound\": \"any\",\n        \"server\": \"dns_direct\"\n      },\n      {\n        \"query_type\": [\n          \"A\",\n          \"AAAA\"\n        ],\n        \"server\": \"dns_proxy\"\n      }\n    ],\n    \"final\": \"dns_proxy\",\n    \"strategy\": \"ipv4_only\"\n  },\n  \"inbounds\": [\n    {\n      \"type\": \"mixed\",\n      \"tag\": \"mixed-in\",\n      \"listen\": \"::\",\n      \"listen_port\": 2080,\n      \"sniff\": true,\n      \"set_system_proxy\": false\n    }\n  ],\n  \"outbounds\": [\n    {\n      \"type\": \"selector\",\n      \"tag\": \"Select\",\n      \"outbounds\": [\n        \"direct\"\n      ],\n      \"default\": \"direct\"\n    },\n    {\n      \"type\": \"direct\",\n      \"tag\": \"direct\"\n    },\n    {\n      \"type\": \"block\",\n      \"tag\": \"block\"\n    },\n    {\n      \"type\": \"dns\",\n      \"tag\": \"dns-out\"\n    }\n  ],\n  \"route\": {\n    \"rules\": [\n      {\n        \"protocol\": \"dns\",\n        \"outbound\": \"dns-out\"\n      },\n      {\n        \"geoip\": \"cn\",\n        \"geosite\": \"cn\",\n        \"outbound\": \"direct\"\n      }\n    ],\n    \"final\": \"Select\",\n    \"auto_detect_interface\": true\n  }\n}"
+  },
+  "updated_at": "2026-09-12 20:11:15 UTC"
+}

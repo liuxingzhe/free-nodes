@@ -1,0 +1,145 @@
+# Clash YAML 模版配置文件
+# 完美契合规则流和自启测速切换
+
+port: 7890
+socks-port: 7891
+redir-port: 7892
+mixed-port: 7893
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: false
+external-controller: 127.0.0.1:9090
+
+dns:
+  enable: true
+  ipv6: false
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  default-nameserver:
+    - 114.114.114.114
+    - 8.8.8.8
+  nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+    - https://dns.google/dns-query
+
+# 二元动态宏渲染节点
+proxies:
+  - name: "🚀  | SSR_1"
+    type: ss
+    server: "176.32.35.248"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSQ&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_2"
+    type: ss
+    server: "176.32.35.156"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSw&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_3"
+    type: ss
+    server: "46.29.160.142"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTQ&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_4"
+    type: ss
+    server: "46.29.160.156"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTg&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_5"
+    type: ss
+    server: "176.32.35.120"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavTA&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_6"
+    type: ss
+    server: "85.117.234.107"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavUA&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_7"
+    type: ss
+    server: "45.89.229.158"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavRg&group=TG5jbi5vcmc"
+    udp: false
+  - name: "🚀  | SSR_8"
+    type: ss
+    server: "45.130.146.33"
+    port: 15152
+    cipher: "aes-128-gcm"
+    password: "bG5jbi5vcmcgOHk2/?obfsparam=&remarks=5L-E572X5pavSA&group=TG5jbi5vcmc"
+    udp: false
+
+proxy-groups:
+  # 默认最高优先级策略：手动在测速和各个节点间自由选择切换
+  - name: AutoProxy
+    type: select
+    proxies:
+      - ⚡ 自动最快
+      - 🔮 智能负载
+      - DIRECT
+      - "🚀  | SSR_1"
+      - "🚀  | SSR_2"
+      - "🚀  | SSR_3"
+      - "🚀  | SSR_4"
+      - "🚀  | SSR_5"
+      - "🚀  | SSR_6"
+      - "🚀  | SSR_7"
+      - "🚀  | SSR_8"
+
+  # 测速选择：每隔 5 分钟向真实测试目标发送 HEAD 连接，自动切入延迟最低极速节点
+  - name: ⚡ 自动最快
+    type: url-test
+    url: http://cp.cloudflare.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "🚀  | SSR_1"
+      - "🚀  | SSR_2"
+      - "🚀  | SSR_3"
+      - "🚀  | SSR_4"
+      - "🚀  | SSR_5"
+      - "🚀  | SSR_6"
+      - "🚀  | SSR_7"
+      - "🚀  | SSR_8"
+
+  # 重负载分配器
+  - name: 🔮 智能负载
+    type: load-balance
+    url: http://cp.cloudflare.com/generate_204
+    interval: 600
+    strategy: consistent-hashing
+    proxies:
+      - "🚀  | SSR_1"
+      - "🚀  | SSR_2"
+      - "🚀  | SSR_3"
+      - "🚀  | SSR_4"
+      - "🚀  | SSR_5"
+      - "🚀  | SSR_6"
+      - "🚀  | SSR_7"
+      - "🚀  | SSR_8"
+
+rules:
+  - DOMAIN-SUFFIX,google.com,AutoProxy
+  - DOMAIN-SUFFIX,github.com,AutoProxy
+  - DOMAIN-SUFFIX,githubusercontent.com,AutoProxy
+  - DOMAIN-SUFFIX,telegram.org,AutoProxy
+  - DOMAIN-keyword,youtube,AutoProxy
+  - DOMAIN-keyword,twitter,AutoProxy
+  - DOMAIN-keyword,netflix,AutoProxy
+  - GEOIP,CN,DIRECT
+  - MATCH,AutoProxy

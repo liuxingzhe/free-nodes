@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "config": {
+    "scrapers": {
+      "github_sources": [],
+      "telegram_channels": [],
+      "web_sources": [
+        {
+          "name": "YoYaPai Clash",
+          "url": "https://yoyapai.com/tag/clash-meta%e8%8a%82%e7%82%b9",
+          "depth": 2
+        },
+        {
+          "name": "FreeClashNode",
+          "url": "https://www.freeclashnode.com/free-node/",
+          "depth": 2
+        }
+      ]
+    },
+    "tester": {
+      "threads": 16,
+      "timeout_ms": 8000,
+      "min_download_mbps": 0.05,
+      "max_ping_ms": 5000,
+      "test_mode": "pingonly",
+      "test_url": "http://cp.cloudflare.com/generate_204"
+    },
+    "convertor": {
+      "max_output_nodes": 80,
+      "clash_group_name": "AutoProxy"
+    }
+  }
+}
